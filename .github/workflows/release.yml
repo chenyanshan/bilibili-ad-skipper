@@ -1,7 +1,10 @@
 name: Release extension
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    # GitHub applies paths only to branch pushes; version tags still publish.
+    paths: ['docs/releases/*.md', '.github/workflows/release.yml']
   workflow_dispatch:
     inputs:
       tag:
@@ -11,14 +14,17 @@ on:
 permissions:
   contents: write
 concurrency:
+  # Keep main notes updates separate so they cannot supersede a pending tag release.
   group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 jobs:
   release:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Validate tag format
         shell: bash
@@ -26,14 +32,32 @@ jobs:
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release tag"; exit 1; }
       - uses: actions/checkout@v4
         with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Snapshot release notes from main
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+
+          notes = Path("docs/releases") / (os.environ["RELEASE_TAG"] + ".md")
+          if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
+              raise SystemExit("Release notes must exist on main and be nonempty")
+          snapshot = Path(os.environ["RUNNER_TEMP"]) / "bilibili-release-notes.md"
+          snapshot.write_bytes(notes.read_bytes())
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"RELEASE_NOTES={snapshot}\n")
+          PYTHON
+      - uses: actions/checkout@v4
+        with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - name: Verify tag and source
         shell: bash
         run: |
@@ -51,8 +75,80 @@ jobs:
       - name: Publish or repair release assets
         shell: bash
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --clobber
-          else
-            gh release create "$RELEASE_TAG" dist/* --verify-tag --title "B站广告跳过 $RELEASE_TAG" --generate-notes
-          fi
+          python3 - <<'PYTHON'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          notes = os.environ["RELEASE_NOTES"]
+          endpoint = f"repos/{os.environ['GH_REPO']}/releases/tags/{tag}"
+          response = subprocess.run(["gh", "api", "--include", endpoint], capture_output=True, text=True)
+          status = re.search(r"^HTTP/[\d.]+\s+(\d{3})\b", response.stdout, re.MULTILINE)
+          if response.returncode == 0:
+              assets = sorted(str(path) for path in Path("dist").iterdir() if path.is_file())
+              subprocess.run(["gh", "release", "upload", tag, *assets, "--clobber"], check=True)
+              subprocess.run(["gh", "release", "edit", tag, "--notes-file", notes], check=True)
+          elif status and status.group(1) == "404":
+              assets = sorted(str(path) for path in Path("dist").iterdir() if path.is_file())
+              subprocess.run(["gh", "release", "create", tag, *assets, "--verify-tag",
+                              "--title", f"B站广告跳过 {tag}", "--notes-file", notes], check=True)
+          else:
+              raise SystemExit("Cannot query release; refusing to treat an API failure as a missing release")
+          PYTHON
+
+  notes:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read current version and validate notes
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          version = json.loads(Path("package.json").read_text(encoding="utf-8")).get("version")
+          manifest_version = json.loads(Path("extension/manifest.json").read_text(encoding="utf-8")).get("version")
+          if not isinstance(version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+              raise SystemExit("Invalid package version")
+          if version != manifest_version:
+              raise SystemExit("Package and manifest versions must match")
+          tag = "v" + version
+          notes = Path("docs/releases") / (tag + ".md")
+          if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
+              raise SystemExit("Release notes must exist and be nonempty")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"RELEASE_TAG={tag}\nRELEASE_NOTES={notes.as_posix()}\n")
+          PYTHON
+      - name: Update existing release notes only
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import re
+          import subprocess
+
+          tag = os.environ["RELEASE_TAG"]
+          endpoint = f"repos/{os.environ['GH_REPO']}/releases/tags/{tag}"
+          response = subprocess.run(["gh", "api", "--include", endpoint], capture_output=True, text=True)
+          status = re.search(r"^HTTP/[\d.]+\s+(\d{3})\b", response.stdout, re.MULTILINE)
+          if response.returncode == 0:
+              subprocess.run(["gh", "release", "edit", tag, "--notes-file", os.environ["RELEASE_NOTES"]], check=True)
+          elif status and status.group(1) == "404":
+              print("Release does not exist yet; notes will be used when its version tag is published.")
+          else:
+              raise SystemExit("Cannot query release; only HTTP 404 may be skipped")
+          PYTHON

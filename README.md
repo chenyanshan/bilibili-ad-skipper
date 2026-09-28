@@ -181,8 +181,9 @@ Chrome 开发调试时加载 `extension/`。打包结果在 `dist/`，包含带�
 | 推送 `main` 或提交 PR | 检查、测试、打包，在 Actions 上传测试附件 |
 | 推送与 manifest 版本一致的 `vX.Y.Z` 标签 | 检查、打包，并在 Releases 发布可安装 ZIP |
 | 手动运行 Release extension，填写已存在的 tag | 重试该版本的打包/上传 |
+| 更新当前版本的发布说明并推送 `main` | 同步到已发布 Release 的正文，保留原安装包 |
 
-维护者更新版本使用 `npm run version:set -- X.Y.Z`，它会同步两处版本号。**只推 main 不会发布新版本安装包**。完整的标准更新步骤、失败恢复和禁止事项见 [AGENTS.md](AGENTS.md)。
+维护者更新版本使用 `npm run version:set -- X.Y.Z`，它会同步两处版本号。各版本更新说明保存在 [docs/releases/](docs/releases/)，发布前需准备对应的 `vX.Y.Z.md`，说明功能变化、默认行为、升级方法和验证结果。**只推 main 不会发布新版本安装包**。完整的标准更新步骤、失败恢复和禁止事项见 [AGENTS.md](AGENTS.md)。
 
 更多技术记录：[JEV 接入与实测](docs/JEV.md) · [字幕研究与局限](docs/RESEARCH.md) · [商店发布准备](docs/PUBLISHING.md)
 ## 社区交流

@@ -39,7 +39,7 @@ npm run version:set -- 0.3.1
 
 ## GitHub 标准更新/发布步骤
 
-1. 在工作分支完成修改、必要回归和文档/截图更新。
+1. 在工作分支完成修改、必要回归和文档/截图更新。准备 `docs/releases/vX.Y.Z.md`，用用户能理解的语言说明功能变化、默认行为、升级方法和验证结果；不能只给代码比较链接。
 2. 用 `version:set` 同步版本。运行 `npm run check`、`npm test`、`npm run build -- --tag vX.Y.Z`；确认输出内 manifest 版本和 tag 一致。
 3. 提交代码，推送工作分支并走 PR；合入 `main`。若用户明确要求直接推送自己的仓库，可直接更新 `main`，仍不得跳过检查。
 4. 确认目标发布提交已在 `origin/main`，工作区没有遗漏未提交内容。
@@ -51,13 +51,13 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
-6. 等待 **Release extension** 成功，打开 Releases 检查三个附件、下载 ZIP 校验 SHA256、检查内部 manifest 版本。只有源码已 push、但没有 Release 附件时，不得向用户宣称“新包已发布”。
+6. 等待 **Release extension** 成功，打开 Releases 确认正文包含对应版本的更新说明，检查三个附件、下载 ZIP 校验 SHA256、检查内部 manifest 版本。只有源码已 push、但没有 Release 附件时，不得向用户宣称“新包已发布”。
 7. `README.md` 安装入口固定用 `/releases/latest`，不要改成一次性的本地路径或过期版本下载地址。
 
 ## 两个工作流的区别
 
 - `.github/workflows/ci.yml`：main 推送、PR、手动触发；检查、测试、打包并上传 Actions Artifact（保留 14 天）。仅推 main **不会创建 Release**。
-- `.github/workflows/release.yml`：新 `v*` tag 推送，或手动指定一个**已存在**的 tag；检查 tag 格式、源码在 main 历史中、两处版本一致；生成并上传 Release 附件。
+- `.github/workflows/release.yml`：新 `v*` tag 推送，或手动指定一个**已存在**的 tag；检查 tag 格式、源码在 main 历史中、两处版本一致；使用对应的 `docs/releases/vX.Y.Z.md` 作为正文并上传 Release 附件。main 上更新发布说明或此工作流时，独立任务仅同步当前 package 版本已存在的 Release 正文；尚未发布则等待 tag 发布，不创建空 Release。
 - Release 必须使用 `contents: write` 和 GitHub 自动提供的 `GITHUB_TOKEN` / `github.token`；不依赖维护者个人 PAT、JEV Key 或 LLM Key。
 - tag 名通过环境变量传给 shell，不把未经验证的用户输入直接拼进 shell。
 - 构建规则集中在 `scripts/package.py`，本地与 CI 使用同一个入口。变更打包布局时必须同时检查 README、两个 workflow 和这里的说明。
@@ -68,4 +68,5 @@ git push origin vX.Y.Z
 - **main 检查成功但没 Release**：检查是否已推送版本 tag；branch push 不触发发布。
 - **网络/临时上传失败**：可以重跑失败工作流，或在 Actions 的 Release extension 手动填写原 tag。发布步骤支持为同一 tag 补传附件，`--clobber` 仅用于同一不可变源码的重跑，不用于偷换已发布代码。
 - **workflow 自身有缺陷**：修复 main 后用新版本、新 tag 发布；旧 tag 的 workflow 仍是旧版本，单纯重跑不会获得新修复。
+- **发布说明遗漏或需要更正**：更新当前版本的 `docs/releases/vX.Y.Z.md` 并推送 main，由说明同步任务更新已发布正文；不移动旧 tag，也不替换安装包。后续新版本仍需在打 tag 前将对应说明放入发布提交。
 - **权限失败**：检查仓库允许 Actions、workflow 的 `contents: write`。通过 HTTPS 推送 `.github/workflows/` 时，classic PAT 除 `repo` 外还需要 `workflow` scope；可使用仓库维护者已授权的 SSH 凭据推送，不要误删工作流以绕过发布准备。不要打印凭据排查。
