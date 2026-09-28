@@ -40,3 +40,19 @@ test('JEV 不返回无限循环的部分成功',async()=>{
 test('JEV 无广告只问一题，不列出全部边界选项',async()=>{let calls=0;const found=await detectWithJev({rows,threshold:.65,duration:180,ask:async body=>{calls++;assert.deepEqual(Object.keys(body.questions),['has_ad']);return {answers:{has_ad:{type:'noul',noul:.1}}};}});assert.equal(calls,1);assert.deepEqual(found,[]);});
 
 test('分发默认配置：JEV 优先，LLM 地址模型和所有 Key 留空',()=>{assert.equal(DEFAULTS.provider,'jev');assert.equal(DEFAULTS.baseUrl,'');assert.equal(DEFAULTS.model,'');assert.equal(DEFAULTS.apiKey,'');assert.equal(DEFAULTS.jevApiKey,'');});
+
+test('自动投稿同时要求presence、两个边界confidence与选中概率达到90%，本地阈值不变',()=>{
+ const good=answer('s_10','s_19',.9);
+ for(const name of ['start','end']){good.answers[name].confidence=.9;good.answers[name].probabilities[good.answers[name].choice]=.9;}
+ assert.equal(jevBoundaryResult(good,rows,.65,180).segment.autoSubmitEligible,true);
+ const mutations=[a=>a.has_ad.noul=.89,a=>a.start.confidence=.89,a=>a.end.confidence=.89,
+  a=>a.start.probabilities[a.start.choice]=.89,a=>a.end.probabilities[a.end.choice]=.89];
+ for(const mutate of mutations){const changed=structuredClone(good);mutate(changed.answers);const result=jevBoundaryResult(changed,rows,.65,180);assert.ok(result.segment);assert.equal(result.segment.autoSubmitEligible,false);}
+ const outside=structuredClone(good);outside.answers.end={type:'choice',choice:'outside',confidence:.99,probabilities:{outside:.99}};
+ assert.equal(jevBoundaryResult(outside,rows,.65,300).segment.autoSubmitEligible,false);
+});
+
+test('presence为广告但两个边界均none不视作已确认无广告',()=>{
+ assert.throws(()=>jevBoundaryResult(answer('none','none',.99),rows,.65,180),/矛盾|未完成/);
+ assert.equal(jevBoundaryResult(answer('none','none',.1),rows,.65,180).done,true);
+});

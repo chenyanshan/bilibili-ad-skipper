@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "B站广告跳过",
-  "version": "0.3.0",
-  "description": "自动识别并跳过 B 站视频内较长的植入广告，可选 JEV 分类或自定义 LLM 接口。",
+  "version": "0.4.0",
+  "description": "优先跳过 B 站社区标注的付费广告，没有标注时可用 JEV 或自定义 LLM 识别。",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",
@@ -12,7 +12,8 @@
     "https://www.bilibili.com/*",
     "https://*.hdslb.com/*",
     "https://subtitle.bilibili.com/*",
-    "https://api.typesafe.ai/*"
+    "https://api.typesafe.ai/*",
+    "https://www.bsbsb.top/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
