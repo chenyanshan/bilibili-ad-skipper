@@ -166,3 +166,6 @@ Chrome 开发调试时加载 `extension/`。打包结果在 `dist/`，包含带�
 维护者更新版本使用 `npm run version:set -- X.Y.Z`，它会同步两处版本号。**只推 main 不会发布新版本安装包**。完整的标准更新步骤、失败恢复和禁止事项见 [AGENTS.md](AGENTS.md)。
 
 更多技术记录：[JEV 接入与实测](docs/JEV.md) · [字幕研究与局限](docs/RESEARCH.md) · [商店发布准备](docs/PUBLISHING.md)
+## 社区交流
+
+[LINUX DO](https://linux.do/)：项目交流与反馈。
