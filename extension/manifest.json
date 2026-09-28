@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "B站广告跳过",
+  "version": "0.3.0",
+  "description": "自动识别并跳过 B 站视频内较长的植入广告，可选 JEV 分类或自定义 LLM 接口。",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.bilibili.com/*",
+    "https://*.hdslb.com/*",
+    "https://subtitle.bilibili.com/*",
+    "https://api.typesafe.ai/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "B站广告跳过 · 设置"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.bilibili.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}

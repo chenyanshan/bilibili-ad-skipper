@@ -1,0 +1,12 @@
+{
+  "name": "bilibili-ad-skipper",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.mjs",
+    "build": "python3 scripts/package.py",
+    "version:set": "node scripts/version.mjs"
+  }
+}

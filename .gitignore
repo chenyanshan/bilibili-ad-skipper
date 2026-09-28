@@ -1,0 +1,13 @@
+# Local research contains full third-party subtitles; never publish.
+research/private-*.json
+# Build outputs belong in GitHub Releases / Actions artifacts, not Git history.
+dist/
+*.zip
+# Local secrets, tooling and OS files.
+.env
+.env.*
+*.pem
+*.key
+node_modules/
+__pycache__/
+.DS_Store

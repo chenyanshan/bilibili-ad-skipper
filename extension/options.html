@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>广告跳过 · 设置</title><link rel="stylesheet" href="options.css">
+<main>
+<h1>B站广告跳过</h1><p>正常看视频，较长的商业植入自动跳过。</p>
+<form id="form">
+<label>识别方式<select id="provider"><option value="jev">JEV · 首选：判断广告起止</option><option value="llm">LLM · 备选：生成广告起止位置</option></select></label>
+<p class="hint">两种方式独立配置。仅调用当前选择的服务，不自动切换，也不共享 Key。</p>
+
+<fieldset id="jevFields"><legend>JEV 配置</legend>
+<label>API Base URL<input id="jevBaseUrl" type="url" placeholder="https://api.typesafe.ai"></label>
+<label>模型名称<input id="jevModel" placeholder="jev-latest"></label>
+<label>API Key<input id="jevApiKey" type="password" autocomplete="off" placeholder="apikey_… · 仅保存在本机 Chrome"></label>
+<label>自动跳过最低广告概率<input id="jevThreshold" type="number" min="0.5" max="1" step="0.01"></label>
+<p class="hint">从候选字幕中选择广告开始句、结束句，再继续寻找下一段广告。默认概率门槛 0.65；越低拦得越多，也越容易误跳。JEV 模式完全不调用 LLM。</p>
+</fieldset>
+<fieldset id="llmFields" hidden><legend>LLM 配置</legend>
+<label>API Base URL<input id="baseUrl" type="url" placeholder="https://你的服务商地址/v1"></label>
+<label>模型名称<input id="model"></label>
+<label>API Key<input id="apiKey" type="password" autocomplete="off" placeholder="仅保存在本机 Chrome"></label>
+<label>自动跳过最低评分<input id="threshold" type="number" min="0.8" max="1" step="0.01"></label>
+<p class="hint">OpenAI 兼容接口。由 LLM 返回字幕起止 ID，评分是模型自评，不是准确率。</p>
+</fieldset>
+<label class="check"><input type="checkbox" id="enabled">启用插件</label>
+<label class="check"><input type="checkbox" id="autoSkip">自动跳过广告（支持撤销）</label>
+<label class="check"><input type="checkbox" id="autoAnalyze">打开视频自动识别（发送字幕并消耗接口额度）</label>
+<label class="check"><input type="checkbox" id="economy">省 Token：长视频先在本地筛选广告线索</label>
+<p class="hint">8 分钟以内直接识别全文；长视频先找线索，可能漏掉隐晦植入。关闭后识别完整字幕。</p>
+<label>重点广告品牌（逗号分隔）<input id="brandHints" placeholder="转转,妙界,秒界" maxlength="300"></label>
+<label>自动跳过最短广告（秒）<input id="minDuration" type="number" min="0" max="240" step="1" required></label>
+<p class="hint">默认保留不足 20 秒的短广告。名称只用于寻找候选，仍由当前服务判断；允许少量误跳，可撤销。</p>
+<div class="actions"><button type="submit">保存设置</button><button type="button" id="test">测试已保存的连接</button><button type="button" id="clear">清除分析缓存</button></div>
+<p id="status" role="status"></p>
+</form>
+<footer>Key 仅存本机，不同步。标题、候选字幕及少量赞助上下文会发送给选定服务；短视频或关闭省 Token 时发送完整字幕。不会发送 B 站 Cookie、账号信息或音视频。没有字幕的视频暂不支持。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
+</main><script type="module" src="options.js"></script></html>
