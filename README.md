@@ -8,7 +8,7 @@
 
 ## 社区广告集成
 
-此开发分支为 [`feat/bilibili-sponsorblock-integration`](https://github.com/chenyanshan/bilibili-ad-skipper/tree/feat/bilibili-sponsorblock-integration)，在本项目的小面板中接入 [BilibiliSponsorBlock（小电视空降助手）](https://github.com/hanydd/BilibiliSponsorBlock) 的[社区服务](https://www.bsbsb.top)。这是当前轻量扩展的集成，不会带入上游的完整设置页、片头片尾、互动提醒、弹幕或动态页功能。分支改动不代表最新版安装包已经发布。
+本项目在现有小面板中接入 [BilibiliSponsorBlock（小电视空降助手）](https://github.com/hanydd/BilibiliSponsorBlock) 的[社区服务](https://www.bsbsb.top)，专注付费赞助广告的查询、跳过与投稿。集成开发记录见 [`feat/bilibili-sponsorblock-integration`](https://github.com/chenyanshan/bilibili-ad-skipper/tree/feat/bilibili-sponsorblock-integration)。源码更新和安装包发布分开进行，安装包以 [Releases](https://github.com/chenyanshan/bilibili-ad-skipper/releases/latest) 为准。
 
 默认先查询社区的 **赞助/恰饭（sponsor）** 标注。有社区广告就直接采用，整支当前分 P 不调用 AI；只有没有广告标注时才使用选定的 JEV / LLM。其他类别不参与此判断。社区的整片广告标签或静音广告说明已有广告标注，但不会被当成可整片跳过的时间段。
 
@@ -48,7 +48,7 @@
 
 ![JEV 首选配置界面，Key 由使用者自行填写](docs/images/settings.png)
 
-历史配置截图；当前集成分支还提供社区广告和独立投稿开关。
+历史配置截图；当前设置页还提供社区广告和独立投稿开关。
 
 ### 方案一：JEV（首选）
 
