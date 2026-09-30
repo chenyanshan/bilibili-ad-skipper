@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "B站广告跳过",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "优先跳过 B 站社区标注的付费广告，没有标注时可用 JEV 或自定义 LLM 识别。",
   "minimum_chrome_version": "120",
   "permissions": [

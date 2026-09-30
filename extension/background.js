@@ -1,8 +1,9 @@
-import {providerConfig,detectWithJev} from './providers.js';
+import {providerConfig} from './providers.js';
+import {analyzeJev} from './jev-analysis.js';
 import {DEFAULTS,normalizeBody,parseResult,mergeSegments,SYSTEM,planAnalysis,compactRows,touchesBoundary,budgetChunks,sponsorContext} from './core.js';
 import {createCommunityClient} from './community.js';
 
-const CACHE_KEY='analysisCache:v7',CACHE_TTL=7*86400000,REGISTRY_KEY='trustedTabs:v1';
+const CACHE_KEY='analysisCache:v8',CACHE_TTL=7*86400000,REGISTRY_KEY='trustedTabs:v2';
 function videoKey(url){try{const u=new URL(url);return u.origin==='https://www.bilibili.com'&&/^\/video\/(BV[\w]+)/.test(u.pathname)?`${u.pathname.match(/\/video\/(BV[\w]+)/)[1]}:${Number(u.searchParams.get('p')||1)}`:null;}catch{return null;}}
 function rank(lan){return ['zh-CN','zh-Hans','zh','ai-zh'].indexOf(lan)<0?10:['zh-CN','zh-Hans','zh','ai-zh'].indexOf(lan);}
 
@@ -91,12 +92,12 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     if(!r.ok)throw Error(`请求失败 HTTP ${r.status}`);return r.json();
   }
   async function execute(tabId,func,args){const [r]=await chromeApi.scripting.executeScript({target:{tabId},world:'MAIN',func,args});if(!r?.result)throw Error('读取播放器失败，请刷新 B站页面');return r.result;}
-  function configIdentity(s,p){return JSON.stringify({version:7,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints,economy:s.economy});}
+  function configIdentity(s,p){return JSON.stringify({version:8,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints,economy:s.economy});}
   async function fingerprint(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function cacheGet(id){return serializeCache(async()=>{
     const all=await storage.get(null),entries=Array.isArray(all[CACHE_KEY])?all[CACHE_KEY]:[];
     const valid=entries.filter(e=>e&&typeof e.id==='string'&&Number.isFinite(e.time)&&now()-e.time>=0&&now()-e.time<CACHE_TTL&&(e.result?.coverage?.complete===true||(e.result?.analysisStatus==='ads'&&e.result.incomplete===0))&&['ads','no_ads'].includes(e.result.analysisStatus)&&Array.isArray(e.result.segments)).sort((a,b)=>b.time-a.time).slice(0,100);
-    const legacy=Object.keys(all).filter(k=>k.startsWith('cache:'));if(legacy.length)await storage.remove(legacy);
+    const legacy=Object.keys(all).filter(k=>(k.startsWith('cache:')||(k.startsWith('analysisCache:')&&k!==CACHE_KEY)));if(legacy.length)await storage.remove(legacy);
     if(valid.length!==entries.length)await storage.set({[CACHE_KEY]:valid});
     return valid.find(e=>e.id===id)?.result;
   });}
@@ -113,6 +114,14 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     if(subUrl.protocol!=='https:'||subUrl.username||subUrl.password||!(subUrl.hostname.endsWith('.hdslb.com')||subUrl.hostname==='subtitle.bilibili.com'))throw Error('不支持的字幕来源');
     await ensureJob(job);
     const rows=normalizeBody((await jsonFetch(subUrl.href)).body),url=provider.url;
+    if(provider.id==='jev'){
+      const result=await analyzeJev({rows,model:provider.model,title:v.title,brands:s.brandHints,threshold:provider.threshold,duration:v.duration,
+        ask:async body=>{await ensureJob(job);return jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${provider.key}`},body:JSON.stringify(body)});},
+        onProgress:async text=>{await chromeApi.tabs.sendMessage((await ensureJob(job)).tabId,{type:'progress',key:job.key,text}).catch(()=>{});}
+      });
+      return {...result,provider:'jev',segments:result.segments.map(segment=>({...segment,id:crypto.randomUUID(),source:'ai',provider:'jev'})),
+        title:v.title,language:track.lan_doc||track.lan,analysisConfig:JSON.parse(configIdentity(s,provider)),bvid:v.bvid,cid:v.cid,duration:v.duration};
+    }
   const {parts,stats}=planAnalysis(rows,s.economy,v.duration,s.brandHints);if(parts.length>24)throw Error('候选字幕过多，超过单视频 24 次请求预算，本次未调用 AI');
   const context=sponsorContext(rows);
   const found=[];let incomplete=0;stats.actualRequests=0;stats.promptTokens=0;stats.completionTokens=0;stats.usageReported=true;
@@ -126,7 +135,6 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
       if(reply.usage){stats.promptTokens+=reply.usage.input_tokens||reply.usage.prompt_tokens||0;stats.completionTokens+=reply.usage.output_tokens||reply.usage.completion_tokens||0;}else stats.usageReported=false;
       return reply;
     }
-    if(provider.id==='jev')return detectWithJev({rows:part,model:provider.model,title:v.title,context,brands:s.brandHints,threshold:provider.threshold,duration:v.duration,ask});
     const reply=await ask({model:provider.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:JSON.stringify({title:v.title,sponsor_context:context,ad_brand_hints:s.brandHints,subtitles:compactRows(part)})}],temperature:0,max_tokens:1600});
     const choice=reply.choices?.[0];
     if(choice?.finish_reason==='length')throw Error('AI 输出被截断，请更换模型或重试');
