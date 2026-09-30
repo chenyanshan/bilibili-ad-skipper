@@ -10,7 +10,7 @@ if(pkg.version!==manifest.version)throw Error('package.json 与 manifest.json �
 if(DEFAULTS.provider!=='jev'||DEFAULTS.baseUrl||DEFAULTS.model||DEFAULTS.apiKey||DEFAULTS.jevApiKey)throw Error('分发配置必须 JEV 优先、LLM 默认地址/模型和两个 Key 留空');
 if(DEFAULTS.communityEnabled!==true||DEFAULTS.communityAutoSubmit!==false)throw Error('社区查询必须默认开启，自动投稿必须默认关闭');
 if(!manifest.host_permissions.includes('https://www.bsbsb.top/*'))throw Error('缺少社区接口访问权限');
-const required=['core.js','providers.js','community.js',manifest.background.service_worker,manifest.options_page,...Object.values(manifest.icons),...manifest.content_scripts.flatMap(c=>c.js)];
+const required=['core.js','providers.js','jev-analysis.js','community.js',manifest.background.service_worker,manifest.options_page,...Object.values(manifest.icons),...manifest.content_scripts.flatMap(c=>c.js)];
 for(const file of required)if(!fs.existsSync(path.join(root,'extension',file)))throw Error(`缺少扩展文件 ${file}`);
 function scan(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,item.name);if(item.isDirectory())scan(p);else{
  if(item.name.endsWith('.js'))execFileSync(process.execPath,['--check',p],{stdio:'pipe'});

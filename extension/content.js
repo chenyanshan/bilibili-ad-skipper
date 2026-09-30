@@ -70,7 +70,7 @@
       else if(result.provider==='community')status.textContent=result.message||'社区已有广告标注，无可直接跳过的区间；不调用 AI';
       else if(result.analysisStatus==='no_ads')status.textContent='本次未发现广告，结果仅在本机保留 7 天';
       else status.textContent=result.message||'本次识别未完成；可检查配置或重新识别';
-      if(result.incomplete&&segments.length)status.textContent+='；另有边界不完整的片段，保留播放';
+      if(result.incomplete&&segments.length)status.textContent+='；'+(result.message||'另有边界未确认的片段，保留播放');
       if(['error','unavailable'].includes(result.community?.status))status.textContent+='；社区暂不可用';
     }catch(e){if(token===epoch&&current===key)status.textContent=`${e.message}${segments.length?'；已保留已有广告结果':''}`;}
     finally{if(token===epoch&&current===key){busy=false;button.disabled=false;}}

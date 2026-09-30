@@ -26,6 +26,7 @@ export function jevRequest({model,title,context,brands,rows,prefix=[],phase='all
   return body;
 }
 function probability(value){return typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=1;}
+export class JevBoundaryError extends Error {}
 export function jevBoundaryResult(reply,rows,threshold,duration) {
   const a=reply?.answers;
   if(a?.has_ad?.type!=='noul'||!probability(a.has_ad.noul))throw Error('JEV 缺少有效广告判断，未执行跳过');
@@ -36,12 +37,12 @@ export function jevBoundaryResult(reply,rows,threshold,duration) {
     if(!['none','outside',...rows.map(r=>`s_${r.id}`)].includes(x.choice))throw Error('JEV 返回不存在的字幕边界，未执行跳过');
   }
   if(a.has_ad.noul<threshold)return {done:true};
-  if(a.start.choice==='none'&&a.end.choice==='none')throw Error('JEV 广告存在判断与边界矛盾，识别未完成，请重试');
-  if(a.start.choice==='none'||a.end.choice==='none')throw Error('JEV 起止判断不一致，请重试');
+  if(a.start.choice==='none'&&a.end.choice==='none')throw new JevBoundaryError('JEV 广告存在判断与边界矛盾，识别未完成，请重试');
+  if(a.start.choice==='none'||a.end.choice==='none')throw new JevBoundaryError('JEV 起止判断不一致，请重试');
   const startOutside=a.start.choice==='outside',endOutside=a.end.choice==='outside';
   const start=startOutside?rows[0]:rows.find(r=>`s_${r.id}`===a.start.choice);
   const end=endOutside?rows.at(-1):rows.find(r=>`s_${r.id}`===a.end.choice);
-  if(start.id>end.id)throw Error('JEV 起止顺序不正确，未执行跳过');
+  if(start.id>end.id)throw new JevBoundaryError('JEV 起止顺序不正确，未执行跳过');
   const boundaryConfidence=Math.min(a.start.confidence,a.end.confidence,a.start.probabilities[a.start.choice],a.end.probabilities[a.end.choice]);
   const segment={start:start.from,end:Math.min(duration,end.to),confidence:a.has_ad.noul,truncated:startOutside||endOutside,boundaryConfidence,
     autoSubmitEligible:!startOutside&&!endOutside&&end.to<=duration&&a.has_ad.noul>=0.90&&boundaryConfidence>=0.90,
@@ -49,16 +50,34 @@ export function jevBoundaryResult(reply,rows,threshold,duration) {
   return {done:false,segment,endId:end.id,outside:startOutside||endOutside};
 }
 // 先用低成本 noul 过滤无广告窗口，再并行选择起止。只遍历未处理后缀。
-export async function detectWithJev({rows,model,title,context,brands,threshold,duration,ask,maxPasses=4}) {
+export async function detectWithJev({rows,model,title,context,brands,threshold,duration,ask,maxPasses=4,initialGate,repairInconsistent=false}) {
   let remaining=rows;const found=[];
   for(let pass=0;pass<maxPasses&&remaining.length;pass++){
     const first=rows.findIndex(r=>r.id===remaining[0].id);
     const input={model,title,context,brands,rows:remaining,prefix:rows.slice(Math.max(0,first-4),first)};
-    const gate=await ask(jevRequest({...input,phase:'presence'}));
+    const gate=pass===0&&initialGate ? initialGate : await ask(jevRequest({...input,phase:'presence'}));
     if(gate?.answers?.has_ad?.type!=='noul'||!probability(gate.answers.has_ad.noul))throw Error('JEV 缺少有效广告判断，未执行跳过');
     if(gate.answers.has_ad.noul<threshold)return found;
     const boundaries=await ask(jevRequest({...input,phase:'boundaries'}));
-    const result=jevBoundaryResult({answers:{...boundaries?.answers,has_ad:gate.answers.has_ad}},remaining,threshold,duration);
+    let result;
+    try{result=jevBoundaryResult({answers:{...boundaries?.answers,has_ad:gate.answers.has_ad}},remaining,threshold,duration);}
+    catch(error){
+      if(!repairInconsistent||!(error instanceof JevBoundaryError))throw error;
+      const a=boundaries?.answers;
+      const start=remaining.find(r=>`s_${r.id}`===a?.start?.choice),end=remaining.find(r=>`s_${r.id}`===a?.end?.choice);
+      // Independent choices sometimes find one endpoint and reject the other.
+      // Anchor a single retry to the valid endpoint, without accepting a reversed range.
+      if(Boolean(start)===Boolean(end))throw error;
+      const missing=start?'end':'start',anchor=start||end;
+      const eligible=remaining.filter(r=>start?r.id>=start.id:r.id<=end.id);
+      const retry=jevRequest({...input,rows:eligible,phase:'boundaries'});
+      delete retry.questions[start?'start':'end'];
+      retry.state.proposed_boundary=[anchor.id,anchor.content];
+      retry.questions[missing].instructions+=` Another independent judgment provisionally selected subtitle ID ${anchor.id} as the ${start?'FIRST':'LAST'} subtitle of this promotion. Find the ${start?'LAST':'FIRST'} subtitle of the SAME promotion. Include its contiguous setup and product introduction, not only the buying call. Select none if this proposed promotion is actually ordinary content.`;
+      const repaired=await ask(retry);
+      result=jevBoundaryResult({answers:{...a,[missing]:repaired?.answers?.[missing],has_ad:gate.answers.has_ad}},remaining,threshold,duration);
+      if(result.segment){result.segment.autoSubmitEligible=false;result.segment.boundaryRepaired=true;}
+    }
     if(result.done)return found;
     found.push(result.segment);
     if(result.outside)return found; // 交给上层扩窗一次，不接受被窗口截断的广告。

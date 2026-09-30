@@ -49,16 +49,16 @@ test('无广告社区才识别AI；缓存稳定ID和JEV资格，不缓存Key或�
   const h=harness();const first=await h.analyze();assert.equal(first.analysisStatus,'ads');assert.equal(first.segments[0].autoSubmitEligible,true);
   assert.equal(first.community.status,'empty');assert.equal(first.segments[0].boundaryConfidence,.95);
   const calls=aiRequests(h).length;const second=await h.analyze();assert.equal(second.cached,true);assert.equal(second.segments[0].id,first.segments[0].id);assert.equal(aiRequests(h).length,calls);
-  const cache=JSON.stringify(h.data['analysisCache:v7']);assert.ok(!cache.includes('fixture-credential'));assert.ok(!cache.includes('普通讲解字幕'));assert.match(cache,/jev-latest/);
+  const cache=JSON.stringify(h.data['analysisCache:v8']);assert.ok(!cache.includes('fixture-credential'));assert.ok(!cache.includes('普通讲解字幕'));assert.match(cache,/jev-latest/);
 });
 test('完整无广告结果复用缓存；省钱模式未覆盖全文不缓存成无广告',async()=>{
   const provider=async()=>reply({answers:{has_ad:{type:'noul',noul:.1}}});
   const h=harness({provider});assert.equal((await h.analyze()).analysisStatus,'no_ads');assert.equal((await h.analyze()).cached,true);assert.equal(aiRequests(h).length,1);
-  const partial=harness({provider,duration:900});const result=await partial.analyze();assert.equal(result.analysisStatus,'incomplete');assert.equal(result.coverage.complete,false);assert.equal(partial.data['analysisCache:v7'],undefined);
+  const partial=harness({settings:{provider:'llm',baseUrl:'https://llm.example',model:'fixture',apiKey:'fixture'},provider,duration:900});const result=await partial.analyze();assert.equal(result.analysisStatus,'incomplete');assert.equal(result.coverage.complete,false);assert.equal(partial.data['analysisCache:v8'],undefined);
 });
 test('缺字幕、失败响应不会写入无广告缓存',async()=>{
-  const missing=harness({noSubtitles:true});await assert.rejects(missing.analyze(),/字幕/);assert.equal(missing.data['analysisCache:v7'],undefined);
-  const failed=harness({provider:async()=>reply({},500)});await assert.rejects(failed.analyze(),/HTTP 500/);assert.equal(failed.data['analysisCache:v7'],undefined);
+  const missing=harness({noSubtitles:true});await assert.rejects(missing.analyze(),/字幕/);assert.equal(missing.data['analysisCache:v8'],undefined);
+  const failed=harness({provider:async()=>reply({},500)});await assert.rejects(failed.analyze(),/HTTP 500/);assert.equal(failed.data['analysisCache:v8'],undefined);
 });
 test('两标签同视频同配置合并模型调用，结果各自具有可信registry',async()=>{
   const h=harness();const [a,b]=await Promise.all([h.analyze({},1),h.analyze({},2)]);
@@ -69,7 +69,7 @@ test('配置变化和导航期间的旧响应不缓存或应用',async()=>{
     let release,entered;const started=new Promise(resolve=>entered=resolve);
     const h=harness({provider:async()=>{entered();return new Promise(resolve=>release=()=>resolve(reply({answers:{has_ad:{type:'noul',noul:.1}}})));}});
     const pending=h.analyze();await started;if(change==='settings')h.configure({jevModel:'new-model'});else h.navigate();release();
-    await assert.rejects(pending,/切换|配置/);assert.equal(h.data['analysisCache:v7'],undefined);
+    await assert.rejects(pending,/切换|配置/);assert.equal(h.data['analysisCache:v8'],undefined);
   }
 });
 test('auto仅使用后台原区间，社区强制复核后投稿；重复skipped不重复POST',async()=>{
@@ -109,8 +109,8 @@ test('社区复核等待中切换视频，POST前guard再次撤销授权',async(
   assert.equal((await pending).status,'blocked');assert.equal(posts(h).length,0);
 });
 test('旧版缓存移除，过期项清理，完成缓存最多100项',async()=>{
-  const h=harness({data:{'cache:v6:old':{result:{segments:[]}},'analysisCache:v7':Array.from({length:102},(_,i)=>({id:'old-'+i,time:999999,result:{analysisStatus:'no_ads',coverage:{complete:true},segments:[]}}))}});
-  await h.analyze();assert.equal(h.data['cache:v6:old'],undefined);assert.equal(h.data['analysisCache:v7'].length,100);
+  const h=harness({data:{'cache:v6:old':{result:{segments:[]}},'analysisCache:v8':Array.from({length:102},(_,i)=>({id:'old-'+i,time:999999,result:{analysisStatus:'no_ads',coverage:{complete:true},segments:[]}}))}});
+  await h.analyze();assert.equal(h.data['cache:v6:old'],undefined);assert.equal(h.data['analysisCache:v8'].length,100);
 });
 
 test('无Key且社区为空给可操作状态，不请求字幕；同BV/P追踪参数不撤销registry',async()=>{
@@ -138,7 +138,7 @@ test('JEV presence与none边界矛盾不写no_ads缓存',async()=>{
  const h=harness({provider:async request=>request.body.questions.has_ad?reply({answers:{has_ad:{type:'noul',noul:.99}}}):reply({answers:{
   start:{type:'choice',choice:'none',confidence:.99,probabilities:{none:.99}},end:{type:'choice',choice:'none',confidence:.99,probabilities:{none:.99}},
  }})});
- await assert.rejects(h.analyze(),/矛盾|未完成/);assert.equal(h.data['analysisCache:v7'],undefined);
+ const result=await h.analyze();assert.equal(result.analysisStatus,'incomplete');assert.equal(result.segments.length,0);assert.equal(h.data['analysisCache:v8'],undefined);
 });
 
 test('同视频force失败后原可信AI候选仍可明确手动投稿',async()=>{
@@ -154,10 +154,10 @@ test('社区显式关闭与网络不可用区分，缺Key说明如何启用',asy
 });
 test('LLM无效候选与被范围校验拒绝的JEV候选不缓存为no_ads',async()=>{
  const llm=harness({settings:{provider:'llm',apiKey:'fixture',baseUrl:'https://llm.example/v1',model:'model'},provider:async()=>reply({choices:[{message:{content:JSON.stringify({segments:[{start_id:999,end_id:1000,category:'sponsor',confidence:.99}]})}}]})});
- assert.equal((await llm.analyze()).analysisStatus,'incomplete');assert.equal(llm.data['analysisCache:v7'],undefined);
+ assert.equal((await llm.analyze()).analysisStatus,'incomplete');assert.equal(llm.data['analysisCache:v8'],undefined);
  let gate=0;
  const jev=harness({provider:async r=>r.body.questions.has_ad?reply({answers:{has_ad:{type:'noul',noul:++gate===1?.99:.1}}}):reply({answers:{start:{type:'choice',choice:'s_0',confidence:.99,probabilities:{s_0:.99}},end:{type:'choice',choice:'s_98',confidence:.99,probabilities:{s_98:.99}}}})});
- assert.equal((await jev.analyze()).analysisStatus,'incomplete');assert.equal(jev.data['analysisCache:v7'],undefined);
+ assert.equal((await jev.analyze()).analysisStatus,'incomplete');assert.equal(jev.data['analysisCache:v8'],undefined);
 });
 
 test('本机自定义端口的权限模式与设置页一致，不含端口',async()=>{
@@ -167,7 +167,7 @@ test('本机自定义端口的权限模式与设置页一致，不含端口',asy
 });
 test('省钱模式已确认的完整广告可缓存，保留非全文coverage，不声称no_ads',async()=>{
  const partialBody=structuredClone(body);partialBody[5].content='本期广告时间推广链接';
- const h=harness({duration:900,body:partialBody});const first=await h.analyze();
+ const h=harness({settings:{provider:'llm',baseUrl:'https://llm.example',model:'fixture',apiKey:'fixture'},duration:900,body:partialBody});const first=await h.analyze();
  assert.equal(first.analysisStatus,'ads');assert.equal(first.coverage.complete,false);assert.ok(first.coverage.selectedRows<first.coverage.totalRows);
  const calls=aiRequests(h).length;const cached=await h.analyze();assert.equal(cached.cached,true);assert.equal(cached.coverage.complete,false);assert.equal(aiRequests(h).length,calls);
 });
@@ -176,7 +176,7 @@ test('MV3 worker重启从trusted session恢复原候选，不重调AI即可自�
  for(const type of ['skipped','submit']){
   const h=harness({community:r=>r.method==='POST'?reply([{UUID:'restart-receipt'}]):reply([],404)});
   const result=await h.analyze(),calls=aiRequests(h).length,scripts=h.scripts.length;
-  assert.ok(h.sessionData['trustedTabs:v1'].length===1);assert.ok(!JSON.stringify(h.sessionData).includes('fixture-credential'));
+  assert.ok(h.sessionData['trustedTabs:v2'].length===1);assert.ok(!JSON.stringify(h.sessionData).includes('fixture-credential'));
   h.restart();assert.equal((await h.send({type,key:KEY,segmentId:result.segments[0].id})).status,'submitted');
   assert.equal(aiRequests(h).length,calls);assert.equal(h.scripts.length,scripts);assert.equal(posts(h).length,1);
  }
@@ -204,9 +204,9 @@ test('worker重启保留自动尝试标志，不恢复in-flight死锁，失败�
  fail=false;assert.equal((await h.send({type:'submit',key:KEY,segmentId:id})).status,'submitted');assert.equal(posts(h).length,2);
 });
 test('可信session快照数量有界且配置事件清除旧记录',async()=>{
- const h=harness();await h.analyze();const template=h.sessionData['trustedTabs:v1'][0];
- h.sessionData['trustedTabs:v1']=Array.from({length:110},(_,i)=>({...template,tabId:i+10}));
- await h.analyze();assert.equal(h.sessionData['trustedTabs:v1'].length,100);
+ const h=harness();await h.analyze();const template=h.sessionData['trustedTabs:v2'][0];
+ h.sessionData['trustedTabs:v2']=Array.from({length:110},(_,i)=>({...template,tabId:i+10}));
+ await h.analyze();assert.equal(h.sessionData['trustedTabs:v2'].length,100);
  h.configure({jevModel:'changed-model'});h.restart();
  assert.equal((await h.send({type:'submit',key:KEY,segmentId:template.result.segments[0].id})).status,'blocked');
 });
@@ -236,4 +236,16 @@ test('allowed读取settings等待期间变更配置，不启动社区投稿复�
  const pending=h.send({type:'submit',key:KEY,segmentId:result.segments[0].id});await started;
  h.configure({communityEnabled:false});release();assert.equal((await pending).status,'blocked');
  assert.equal(h.requests.filter(r=>r.url.includes('bsbsb.top')).length,lookupCount);assert.equal(posts(h).length,0);
+});
+test('JEV长视频始终检查全文；原有服务配置与省Token偏好不被改写',async()=>{
+ for(const economy of [true,false]){
+  const h=harness({settings:{economy,jevThreshold:.77,jevModel:'custom-model',apiKey:'retained-llm-key'},duration:900,provider:async()=>reply({answers:{has_ad:{type:'noul',noul:.1}}})});
+  const before=structuredClone(h.data.settings),result=await h.analyze();
+  assert.equal(result.analysisStatus,'no_ads');assert.equal(result.coverage.complete,true);assert.equal(result.coverage.mode,'jev-full-gated');assert.equal(aiRequests(h).length,1);
+  assert.deepEqual(h.data.settings,before);
+ }
+});
+test('旧算法缓存与会话不复用，新结果不混入v7边界',async()=>{
+ const h=harness({data:{'analysisCache:v7':[{id:'old-result',result:{analysisStatus:'ads',segments:[{start:0,end:299}]}}]}});
+ const result=await h.analyze();assert.equal(result.segments[0].start,30);assert.equal(h.data['analysisCache:v7'],undefined);assert.ok(h.data['analysisCache:v8']);
 });

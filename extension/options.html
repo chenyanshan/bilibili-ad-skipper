@@ -15,7 +15,7 @@
 <label>模型名称<input id="jevModel" placeholder="jev-latest"></label>
 <label>API Key<input id="jevApiKey" type="password" autocomplete="off" placeholder="apikey_… · 仅保存在本机 Chrome"></label>
 <label>自动跳过最低广告概率<input id="jevThreshold" type="number" min="0.5" max="1" step="0.01"></label>
-<p class="hint">从候选字幕中选择广告开始句、结束句，再继续寻找下一段广告。默认概率门槛 0.65；越低拦得越多，也越容易误跳。JEV 模式完全不调用 LLM。</p>
+<p class="hint">先分块检查完整字幕，仅对疑似广告选择起止句，边界不确定时复核。默认概率门槛 0.65；越低拦得越多，也越容易误跳。JEV 模式完全不调用 LLM。</p>
 </fieldset>
 <fieldset id="llmFields" hidden><legend>LLM 配置</legend>
 <label>API Base URL<input id="baseUrl" type="url" placeholder="https://你的服务商地址/v1"></label>
@@ -29,13 +29,13 @@
 <label class="check"><input type="checkbox" id="autoAnalyze">打开视频自动查询；无社区广告时调用 AI</label>
 <label class="check"><input type="checkbox" id="communityAutoSubmit" aria-describedby="submissionHelp">自动投稿符合条件的 JEV 广告</label>
 <p class="hint" id="submissionHelp">默认关闭。JEV 广告概率及全部边界评分均 ≥90%，且实际自动跳过后才投稿；失败不自动重试。LLM 只能手动投稿。投稿是公开的，仅发送广告区间和本机生成的匿名社区 ID，不发送字幕或 API Key。</p>
-<label class="check"><input type="checkbox" id="economy">省 Token：长视频先在本地筛选广告线索</label>
-<p class="hint">8 分钟以内直接识别全文；长视频先找线索，可能漏掉隐晦植入。关闭后识别完整字幕。</p>
+<label class="check"><input type="checkbox" id="economy">LLM 省 Token：长视频先在本地筛选广告线索</label>
+<p class="hint">此选项仅影响 LLM。JEV 始终分块检查全文，疑似广告再确认边界；较长视频可能达到请求预算，届时会提示未检查完。</p>
 <label>重点广告品牌（逗号分隔）<input id="brandHints" placeholder="转转,妙界,秒界" maxlength="300"></label>
 <label>AI 自动跳过最短广告（秒）<input id="minDuration" type="number" min="0" max="240" step="1" required></label>
-<p class="hint">AI 默认保留不足 20 秒的短广告；社区广告不受此限制。名称只用于寻找候选，仍由当前服务判断；允许少量误跳，可撤销。</p>
+<p class="hint">AI 默认保留不足 20 秒的短广告；社区广告不受此限制。品牌名称仅辅助判断，不直接认定广告；允许少量误跳，可撤销。</p>
 <div class="actions"><button type="submit">保存设置</button><button type="button" id="test">测试已保存的连接</button><button type="button" id="clear">清除分析缓存</button></div>
 <p id="status" role="status"></p>
 </form>
-<footer>Key 仅存本机，不同步。标题、候选字幕及少量赞助上下文会发送给选定服务；短视频或关闭省 Token 时发送完整字幕。不会发送 B 站 Cookie、账号信息或音视频。社区广告不需要字幕；AI 识别需要字幕。社区查询使用视频标识，投稿的广告数据会公开。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
+<footer>Key 仅存本机，不同步。标题、字幕及少量赞助上下文会发送给选定服务。JEV 分块发送完整字幕；LLM 根据省 Token 设置发送候选或完整字幕。不会发送 B 站 Cookie、账号信息或音视频。社区广告不需要字幕；AI 识别需要字幕。社区查询使用视频标识，投稿的广告数据会公开。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
 </main><script type="module" src="options.js"></script></html>
