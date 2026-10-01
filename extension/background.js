@@ -1,6 +1,7 @@
-import {providerConfig} from './providers.js';
+import {createUsageTracker} from './usage.js';
+import {providerConfig,connectionProbe,validateProbe} from './providers.js';
 import {analyzeJev} from './jev-analysis.js';
-import {DEFAULTS,normalizeBody,parseResult,mergeSegments,SYSTEM,planAnalysis,compactRows,touchesBoundary,budgetChunks,sponsorContext} from './core.js';
+import {DEFAULTS,normalizeSettings,normalizeBody} from './core.js';
 import {createCommunityClient} from './community.js';
 import {readSubtitles,activateAiSubtitles} from './subtitles.js';
 
@@ -25,7 +26,8 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
   const session=chromeApi.storage.session||storage;
   Promise.resolve(session.setAccessLevel?.({accessLevel:'TRUSTED_CONTEXTS'})).catch(()=>{});
   const tabs=new Map(),jobs=new Map();let revision=0,cacheQueue=Promise.resolve(),registryQueue=Promise.resolve();
-  const settings=async()=>({...DEFAULTS,...(await storage.get('settings')).settings});
+  const settings=async()=>normalizeSettings((await storage.get('settings')).settings);
+  const usage=createUsageTracker({storage,now});
   const serializeCache=task=>{const next=cacheQueue.then(task,task);cacheQueue=next.catch(()=>{});return next;};
   const serializeRegistry=task=>{const next=registryQueue.then(task,task);registryQueue=next.catch(()=>{});return next;};
   const settingsHash=s=>fingerprint(JSON.stringify(Object.keys(DEFAULTS).sort().map(key=>[key,s[key]])));
@@ -85,7 +87,7 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     if(!r.ok)throw Error(`请求失败 HTTP ${r.status}`);return r.json();
   }
   async function execute(tabId,func,args){const [r]=await chromeApi.scripting.executeScript({target:{tabId},world:'MAIN',func,args});if(!r?.result)throw Error('读取播放器失败，请刷新 B站页面');return r.result;}
-  function configIdentity(s,p){return JSON.stringify({version:8,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints,economy:s.economy});}
+  function configIdentity(s,p){return JSON.stringify({version:8,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints});}
   async function fingerprint(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function cacheGet(id){return serializeCache(async()=>{
     const all=await storage.get(null),entries=Array.isArray(all[CACHE_KEY])?all[CACHE_KEY]:[];
@@ -116,63 +118,14 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     if(subUrl.protocol!=='https:'||subUrl.username||subUrl.password||!(subUrl.hostname.endsWith('.hdslb.com')||subUrl.hostname==='subtitle.bilibili.com'))throw Error('不支持的字幕来源');
     await ensureJob(job);
     const rows=normalizeBody((await jsonFetch(subUrl.href)).body),url=provider.url;
-    if(provider.id==='jev'){
-      const result=await analyzeJev({rows,model:provider.model,title:v.title,brands:s.brandHints,threshold:provider.threshold,duration:v.duration,
-        ask:async body=>{await ensureJob(job);return jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${provider.key}`},body:JSON.stringify(body)});},
-        onProgress:async text=>{await chromeApi.tabs.sendMessage((await ensureJob(job)).tabId,{type:'progress',key:job.key,text}).catch(()=>{});}
-      });
-      return {...result,provider:'jev',segments:result.segments.map(segment=>({...segment,id:crypto.randomUUID(),source:'ai',provider:'jev'})),
-        title:v.title,language:track.lan_doc||track.lan,analysisConfig:JSON.parse(configIdentity(s,provider)),bvid:v.bvid,cid:v.cid,duration:v.duration};
-    }
-  const {parts,stats}=planAnalysis(rows,s.economy,v.duration,s.brandHints);if(parts.length>24)throw Error('候选字幕过多，超过单视频 24 次请求预算，本次未调用 AI');
-  const context=sponsorContext(rows);
-  const found=[];let incomplete=0;stats.actualRequests=0;stats.promptTokens=0;stats.completionTokens=0;stats.usageReported=true;
-  async function classify(part) {
-    await ensureJob(job);
-    async function ask(body){
-      await ensureJob(job);
-      if(stats.actualRequests>=24)throw Error('达到单视频 24 次请求上限，本次不自动跳过');
-      stats.actualRequests++;
-      const reply=await jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${provider.key}`},body:JSON.stringify(body)});
-      if(reply.usage){stats.promptTokens+=reply.usage.input_tokens||reply.usage.prompt_tokens||0;stats.completionTokens+=reply.usage.output_tokens||reply.usage.completion_tokens||0;}else stats.usageReported=false;
-      return reply;
-    }
-    const reply=await ask({model:provider.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:JSON.stringify({title:v.title,sponsor_context:context,ad_brand_hints:s.brandHints,subtitles:compactRows(part)})}],temperature:0,max_tokens:1600});
-    const choice=reply.choices?.[0];
-    if(choice?.finish_reason==='length')throw Error('AI 输出被截断，请更换模型或重试');
-    const text=choice?.message?.content;if(typeof text!=='string')throw Error('AI 未返回文本，请检查模型配置');
-    return parseResult(text,part,v.duration,()=>{incomplete++;});
+    const result=await analyzeJev({rows,model:provider.model,title:v.title,brands:s.brandHints,threshold:provider.threshold,duration:v.duration,
+      ask:async body=>{await ensureJob(job);return usage.request(provider,()=>jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${provider.key}`},body:JSON.stringify(body)}));},
+      onProgress:async text=>{await chromeApi.tabs.sendMessage((await ensureJob(job)).tabId,{type:'progress',key:job.key,text}).catch(()=>{});}
+    });
+    return {...result,provider:'jev',segments:result.segments.map(segment=>({...segment,id:crypto.randomUUID(),source:'ai',provider:'jev'})),
+      title:v.title,language:track.lan_doc||track.lan,analysisConfig:JSON.parse(configIdentity(s,provider)),bvid:v.bvid,cid:v.cid,duration:v.duration};
   }
-  for(let i=0;i<parts.length;i++) {
-    await chromeApi.tabs.sendMessage((await ensureJob(job)).tabId,{type:'progress',key:job.key,text:`后台确认广告 ${i+1}/${parts.length}…（筛选 ${stats.selectedRows}/${stats.totalRows} 条字幕）`}).catch(()=>{});
-    const part=parts[i];const detected=await classify(part);
-    const edges=detected.filter(seg=>touchesBoundary(seg,part,rows));
-    found.push(...detected.filter(seg=>!touchesBoundary(seg,part,rows)));
-    if(edges.length) {
-      // 疑似广告碰到窗口边界时，只扩一次。仍截断就保留播放，避免跳过正片。
-      const expanded=rows.filter(r=>r.to>part[0].from-60&&r.from<part.at(-1).to+60);
-      if(budgetChunks(expanded).length===1&&stats.actualRequests+(parts.length-i-1)<24){
-        stats.sentChars+=JSON.stringify(compactRows(expanded)).length;
-        const retried=await classify(expanded);
-        incomplete+=retried.filter(seg=>touchesBoundary(seg,expanded,rows)).length;
-        found.push(...retried.filter(seg=>!touchesBoundary(seg,expanded,rows)));
-      }else incomplete+=edges.length;
-    }
-    if(stats.actualRequests>=24&&i+1<parts.length)throw Error('已达到 24 次请求预算，未完成识别，本次不自动跳过');
-  }
-  const merged=mergeSegments(found);
-  const segments=merged.filter(x=>x.end-x.start<=240&&x.end-x.start<v.duration*0.95).map(segment=>({
-    ...segment,id:crypto.randomUUID(),source:'ai',provider:provider.id,
-    autoSubmitEligible:provider.id==='jev'&&segment.autoSubmitEligible===true&&!segment.truncated
-  }));
-  incomplete+=merged.length-segments.length;
-  const fullCoverage=stats.selectedRows===stats.totalRows;
-  return {provider:provider.id,stats,incomplete,segments,title:v.title,language:track.lan_doc||track.lan,
-    analysisConfig:JSON.parse(configIdentity(s,provider)),
-    bvid:v.bvid,cid:v.cid,duration:v.duration,analysisStatus:incomplete||(!segments.length&&!fullCoverage)?'incomplete':segments.length?'ads':'no_ads',
-    ...(!fullCoverage?{message:'省钱模式仅检查有广告线索的字幕，不能确认整片没有广告。'}:{}),
-    coverage:{mode:stats.mode,complete:incomplete===0&&fullCoverage,selectedRows:stats.selectedRows,totalRows:stats.totalRows}};
-  }
+
   async function analyze(token,s,force){
     await ensure(token);
     const v=await execute(token.tabId,readMetadata,[token.key]);
@@ -185,7 +138,7 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
       const result={...v,provider:'community',analysisStatus:'community',community:communityState,segments:lookup.segments||[],hasFullVideoAd:!!lookup.hasFullVideoAd};
       token.result=result;await persistToken(token);await ensure(token);return structuredClone(result);
     }
-    if(!(s.provider==='jev'?s.jevApiKey:s.apiKey)){
+    if(!s.jevApiKey){
       const result={...v,provider:s.provider,analysisStatus:'incomplete',community:communityState,segments:[],
         message:lookup.status==='disabled'?'社区标注已关闭，可开启社区标注或配置 AI 进行识别。':lookup.status==='empty'?'社区暂无广告标注，可在设置中配置 AI 补充识别。':'社区查询暂不可用，可在设置中配置 AI 进行本地识别。',
         coverage:{mode:'none',complete:false}};
@@ -234,8 +187,18 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     }finally{delete segment.submissionInFlight;await persistToken(token);}
   }
   async function handle(msg,sender){
+    if(typeof sender.url==='string'&&sender.url===chromeApi.runtime.getURL?.('options.html')){
+      const s=await settings(),p=providerConfig(s);
+      if(msg.type==='usage')return usage.summary(p);
+      if(msg.type==='testConnection'){
+        if(!p.key)throw Error('请先保存 JEV Key');
+        const reply=await usage.request(p,()=>jsonFetch(p.url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${p.key}`},body:JSON.stringify(connectionProbe(s))}));
+        validateProbe('jev',reply);return {};
+      }
+    }
+
     const tabId=sender.tab?.id;if(!Number.isInteger(tabId)||!videoKey(sender.url))throw Error('不支持的页面');
-    if(msg.type==='settings'){const s=await settings();return {provider:s.provider,enabled:s.enabled,autoSkip:s.autoSkip,autoAnalyze:s.autoAnalyze,threshold:s.provider==='jev'?s.jevThreshold:s.threshold,minDuration:s.minDuration,communityEnabled:s.communityEnabled,communityAutoSubmit:s.communityAutoSubmit};}
+    if(msg.type==='settings'){const s=await settings();return {provider:s.provider,enabled:s.enabled,autoSkip:s.autoSkip,autoAnalyze:s.autoAnalyze,threshold:s.jevThreshold,minDuration:s.minDuration,communityEnabled:s.communityEnabled,communityAutoSubmit:s.communityAutoSubmit};}
     if(msg.type==='options'){await chromeApi.runtime.openOptionsPage();return {};}
     if(msg.type==='analyze'){
       const capturedRevision=revision,s=await settings(),configHash=await settingsHash(s);
@@ -283,7 +246,7 @@ if(globalThis.chrome?.runtime?.onMessage){
   chrome.action.onClicked.addListener(()=>chrome.runtime.openOptionsPage());
   const background=createBackground();
   chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
-    if(!sender.tab||!videoKey(sender.url))return;
+    if(sender.url!==chrome.runtime.getURL('options.html')&&(!sender.tab||!videoKey(sender.url)))return;
     background.handle(msg,sender).then(result=>respond({ok:true,result}),async error=>{
       const s={...DEFAULTS,...(await chrome.storage.local.get('settings')).settings};
       let message=error.message||'操作失败';for(const key of [s.apiKey,s.jevApiKey])if(key)message=message.split(key).join('[已隐藏]');

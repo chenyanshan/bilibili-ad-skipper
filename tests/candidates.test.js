@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {normalizeBody,planAnalysis,candidateWindows,budgetChunks,parseResult,touchesBoundary} from '../extension/core.js';
+import {normalizeBody,planAnalysis,candidateWindows,budgetChunks,touchesBoundary} from '../extension/core.js';
 const make=(texts,start=600)=>normalizeBody(texts.map((content,i)=>({from:start+i*3,to:start+i*3+3,content})));
 // 来自 2026-09-28 抓取的真实字幕；短摘录仅用于召回回归，不把关键词当广告判定。
 test('真实断句：感谢品牌 / 支持我们到这里',()=>{
@@ -13,11 +13,6 @@ test('真实正片用词：下载作弊工具不应独立召回',()=>{
 });
 test('短视频全量检查，避免省少量输入漏掉长广告',()=>{
  const rows=make(['没有任何营销关键词','依旧需要检查'],0);const p=planAnalysis(rows,true,300);assert.equal(p.stats.mode,'short-full');assert.equal(p.stats.selectedRows,2);
-});
-test('三分钟视频中的两分钟广告允许跳过，整片仍受保护',()=>{
- const rows=normalizeBody(Array.from({length:60},(_,i)=>({from:i*3,to:i*3+3,content:'字幕'})));
- const segments=[{start_id:10,end_id:49,category:'sponsor',confidence:.98}];assert.equal(parseResult(JSON.stringify({segments}),rows,180)[0].end,150);
- assert.equal(parseResult(JSON.stringify({segments:[{...segments[0],start_id:0,end_id:59}]}),rows,180).length,0);
 });
 test('长字幕分批有体积上限且不遗漏行',()=>{
  const rows=make(Array.from({length:60},()=> '字'.repeat(500)));const parts=budgetChunks(rows);

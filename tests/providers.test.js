@@ -7,10 +7,10 @@ test('JEV 地址支持根地址、v1 和完整端点，拒绝外部 HTTP',()=>{
  for(const base of ['https://api.typesafe.ai','https://api.typesafe.ai/v1/','https://api.typesafe.ai/v1/systemone'])assert.equal(jevEndpoint(base),'https://api.typesafe.ai/v1/systemone');
  assert.throws(()=>jevEndpoint('http://example.com'));assert.throws(()=>jevEndpoint('https://user:pass@example.com'));
 });
-test('两条路由独立使用 Key 和模型，没有跨服务回退',()=>{
+test('旧 LLM 选择不再路由请求，只使用 JEV 配置',()=>{
  const s={...DEFAULTS,provider:'llm',baseUrl:'https://example.com/v1',model:'test-model',apiKey:'llm-test',jevApiKey:'jev-test'};
- assert.equal(providerConfig(s).key,'llm-test');assert.equal(providerConfig({...s,provider:'jev'}).key,'jev-test');
- assert.equal(providerConfig({...s,provider:'jev',jevApiKey:''}).key,'');assert.throws(()=>providerConfig({...s,provider:'other'}));
+ assert.equal(providerConfig(s).key,'jev-test');assert.equal(providerConfig({...s,provider:'jev'}).key,'jev-test');
+ assert.equal(providerConfig({...s,provider:'jev',jevApiKey:''}).key,'');assert.equal(providerConfig({...s,provider:'other'}).id,'jev');
  assert.equal(connectionProbe({...s,provider:'jev'}).model,'jev-latest');assert.ok(!('messages' in connectionProbe({...s,provider:'jev'})));
 });
 test('JEV 一次并行提问，选择含文本的边界，不依赖 question key',()=>{
@@ -39,7 +39,7 @@ test('JEV 不返回无限循环的部分成功',async()=>{
 
 test('JEV 无广告只问一题，不列出全部边界选项',async()=>{let calls=0;const found=await detectWithJev({rows,threshold:.65,duration:180,ask:async body=>{calls++;assert.deepEqual(Object.keys(body.questions),['has_ad']);return {answers:{has_ad:{type:'noul',noul:.1}}};}});assert.equal(calls,1);assert.deepEqual(found,[]);});
 
-test('分发默认配置：JEV 优先，LLM 地址模型和所有 Key 留空',()=>{assert.equal(DEFAULTS.provider,'jev');assert.equal(DEFAULTS.baseUrl,'');assert.equal(DEFAULTS.model,'');assert.equal(DEFAULTS.apiKey,'');assert.equal(DEFAULTS.jevApiKey,'');});
+test('分发默认配置：仅 JEV，Key 留空',()=>{assert.equal(DEFAULTS.provider,'jev');assert.ok(!('baseUrl' in DEFAULTS));assert.ok(!('model' in DEFAULTS));assert.ok(!('apiKey' in DEFAULTS));assert.equal(DEFAULTS.jevApiKey,'');});
 
 test('自动投稿同时要求presence、两个边界confidence与选中概率达到90%，本地阈值不变',()=>{
  const good=answer('s_10','s_19',.9);
