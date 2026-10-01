@@ -3,39 +3,39 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>广告跳过 · 设置</title><link rel="stylesheet" href="options.css">
 <main>
-<h1>B站广告跳过</h1><p>社区广告优先；没有广告标注时，再由所选 AI 识别。</p>
+<h1>B站广告跳过</h1><p>社区广告优先；没有广告标注时，再由JEV 识别。</p>
 <form id="form">
 <label class="check"><input type="checkbox" id="communityEnabled">使用社区广告标注（无需 API Key）</label>
 <p class="hint">仅采用“赞助/恰饭”（sponsor）广告。有社区广告就直接跳过，不调用 AI。来源：<a href="https://github.com/hanydd/BilibiliSponsorBlock" target="_blank" rel="noopener noreferrer">BilibiliSponsorBlock 社区</a>。</p>
-<label>识别方式<select id="provider"><option value="jev">JEV · 首选：判断广告起止</option><option value="llm">LLM · 备选：生成广告起止位置</option></select></label>
-<p class="hint">两种方式独立配置。仅调用当前选择的服务，不自动切换，也不共享 Key。</p>
-
 <fieldset id="jevFields"><legend>JEV 配置</legend>
 <label>API Base URL<input id="jevBaseUrl" type="url" placeholder="https://api.typesafe.ai"></label>
 <label>模型名称<input id="jevModel" placeholder="jev-latest"></label>
 <label>API Key<input id="jevApiKey" type="password" autocomplete="off" placeholder="apikey_… · 仅保存在本机 Chrome"></label>
 <label>自动跳过最低广告概率<input id="jevThreshold" type="number" min="0.5" max="1" step="0.01"></label>
-<p class="hint">先分块检查完整字幕，仅对疑似广告选择起止句，边界不确定时复核。默认概率门槛 0.65；越低拦得越多，也越容易误跳。JEV 模式完全不调用 LLM。</p>
-</fieldset>
-<fieldset id="llmFields" hidden><legend>LLM 配置</legend>
-<label>API Base URL<input id="baseUrl" type="url" placeholder="https://你的服务商地址/v1"></label>
-<label>模型名称<input id="model"></label>
-<label>API Key<input id="apiKey" type="password" autocomplete="off" placeholder="仅保存在本机 Chrome"></label>
-<label>自动跳过最低评分<input id="threshold" type="number" min="0.8" max="1" step="0.01"></label>
-<p class="hint">OpenAI 兼容接口。由 LLM 返回字幕起止 ID，评分是模型自评，不是准确率。</p>
+<p class="hint">先分块检查完整字幕，仅对疑似广告选择起止句，边界不确定时复核。默认概率门槛 0.65；越低拦得越多，也越容易误跳。</p>
 </fieldset>
 <label class="check"><input type="checkbox" id="enabled">启用插件</label>
 <label class="check"><input type="checkbox" id="autoSkip">自动跳过广告（支持撤销）</label>
 <label class="check"><input type="checkbox" id="autoAnalyze">打开视频自动查询；无社区广告时调用 AI</label>
 <label class="check"><input type="checkbox" id="communityAutoSubmit" aria-describedby="submissionHelp">自动投稿符合条件的 JEV 广告</label>
-<p class="hint" id="submissionHelp">默认关闭。JEV 广告概率及全部边界评分均 ≥90%，且实际自动跳过后才投稿；失败不自动重试。LLM 只能手动投稿。投稿是公开的，仅发送广告区间和本机生成的匿名社区 ID，不发送字幕或 API Key。</p>
-<label class="check"><input type="checkbox" id="economy">LLM 省 Token：长视频先在本地筛选广告线索</label>
-<p class="hint">此选项仅影响 LLM。JEV 始终分块检查全文，疑似广告再确认边界；较长视频可能达到请求预算，届时会提示未检查完。</p>
+<p class="hint" id="submissionHelp">默认关闭。JEV 广告概率及全部边界评分均 ≥90%，且实际自动跳过后才投稿；失败不自动重试。投稿是公开的，仅发送广告区间和本机生成的匿名社区 ID，不发送字幕或 API Key。</p>
 <label>重点广告品牌（逗号分隔）<input id="brandHints" placeholder="转转,妙界,秒界" maxlength="300"></label>
 <label>AI 自动跳过最短广告（秒）<input id="minDuration" type="number" min="0" max="240" step="1" required></label>
 <p class="hint">AI 默认保留不足 20 秒的短广告；社区广告不受此限制。品牌名称仅辅助判断，不直接认定广告；允许少量误跳，可撤销。</p>
 <div class="actions"><button type="submit">保存设置</button><button type="button" id="test">测试已保存的连接</button><button type="button" id="clear">清除分析缓存</button></div>
 <p id="status" role="status"></p>
 </form>
-<footer>Key 仅存本机，不同步。标题、字幕及少量赞助上下文会发送给选定服务。JEV 分块发送完整字幕；LLM 根据省 Token 设置发送候选或完整字幕。不会发送 B 站 Cookie、账号信息或音视频。社区广告不需要字幕；AI 识别需要字幕；首次读取不到时，会尝试开启中文 AI 字幕后恢复原状态。社区查询使用视频标识，投稿的广告数据会公开。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
+<section aria-labelledby="usageHeading"><h2 id="usageHeading">JEV 用量与费用</h2>
+<p id="usage" role="status">正在读取本机用量…</p>
+<table id="usageTable" hidden><caption>当前 Key 在此浏览器的用量（UTC 日期）</caption><thead><tr><th scope="col">项目</th><th scope="col">今日</th><th scope="col">最近 90 天</th></tr></thead><tbody>
+<tr><th scope="row">请求次数</th><td id="todayRequests"></td><td id="recentRequests"></td></tr>
+<tr><th scope="row">输入 Token</th><td id="todayInput"></td><td id="recentInput"></td></tr>
+<tr><th scope="row">输出 Token</th><td id="todayOutput"></td><td id="recentOutput"></td></tr>
+<tr><th scope="row">参考费用 · 美元</th><td id="todayCost"></td><td id="recentCost"></td></tr>
+</tbody></table>
+<p class="hint">按 <a href="https://docs.typesafe.ai/models" target="_blank" rel="noopener noreferrer">JEV 1.13 官方价格</a>估算：每百万输入 Token $0.042，输出免费（核对于 2026-10-01）。仅对官方接口已知模型估价；第三方 Key 的购入价格、折扣与实际扣款可能不同。</p>
+<p class="hint">从本次升级开始记录，包含连接测试；社区命中和缓存不计入。仅统计本机已收到的用量，不含其他设备或应用；中途退出、网络或存储异常可能漏记，不是账单。清除分析缓存不会清除此统计。</p>
+<button type="button" id="refreshUsage">刷新用量</button>
+</section>
+<footer>Key 仅存本机，不同步。标题、字幕及少量赞助上下文会发送给JEV 服务。JEV 分块发送完整字幕。不会发送 B 站 Cookie、账号信息或音视频。社区广告不需要字幕；AI 识别需要字幕；首次读取不到时，会尝试开启中文 AI 字幕后恢复原状态。社区查询使用视频标识，投稿的广告数据会公开。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
 </main><script type="module" src="options.js"></script></html>

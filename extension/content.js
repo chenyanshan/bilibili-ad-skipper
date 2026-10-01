@@ -65,7 +65,7 @@
       const result=await send({type:'analyze',key:current,force});if(token!==epoch||current!==key)return;
       if(result.analysisStatus==='incomplete'&&!result.segments?.length&&segments.length){status.textContent='本次识别未完成，保留已有广告结果，可重试';return;}
       segments=result.segments||[];render();
-      const source=result.provider==='community'?'社区':result.provider==='jev'?'JEV':'LLM';
+      const source=result.provider==='community'?'社区':'JEV';
       if(segments.length)status.textContent=`${source} · 找到 ${segments.length} 段广告${result.cached?'（本机缓存）':''}；${cfg.autoSkip?(result.provider==='community'?'自动跳过':`符合评分且 ≥${cfg.minDuration??20} 秒时自动跳过`):'手动跳过'}`;
       else if(result.provider==='community')status.textContent=result.message||'社区已有广告标注，无可直接跳过的区间；不调用 AI';
       else if(result.analysisStatus==='no_ads')status.textContent='本次未发现广告，结果仅在本机保留 7 天';
