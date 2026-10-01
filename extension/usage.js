@@ -1,4 +1,4 @@
-// Local observations, never an account balance or a monetary estimate.
+// Local observations and reference costs, never an account balance or a bill.
 const DAY=86400000;
 export function createUsageTracker({storage,now=Date.now}) {
   let queue=Promise.resolve();
