@@ -14,7 +14,7 @@ function harness(options={}){
     storage:{local:{get:async key=>key===null?structuredClone(data):{[key]:structuredClone(data[key])},set:async values=>Object.assign(data,structuredClone(values)),remove:async keys=>{for(const key of Array.isArray(keys)?keys:[keys])delete data[key];}},onChanged:{addListener:f=>changes.push(f)}},
     runtime:{getManifest:()=>({version:'0.3.0'})},permissions:{contains:async()=>options.permission!==false},
     tabs:{get:async id=>({id,url:tabUrls.get(id)}),query:async()=>[],sendMessage:async(id,msg)=>progress.push({id,msg}),onUpdated:{addListener:f=>updates.push(f)},onRemoved:{addListener:()=>{}}},
-    scripting:{executeScript:async({func,args,target})=>{scripts.push(func.name);if(func.name==='readMetadata')return [{result:{bvid:BVID,cid:123456,duration:options.duration||300,title:'测试视频'}}];return [{result:options.noSubtitles?[]:[{lan:'zh-CN',subtitle_url:'https://test.hdslb.com/sub.json'}]}];}},
+    scripting:{executeScript:async({func,args,target})=>{scripts.push(func.name);if(func.name==='readMetadata')return [{result:{bvid:BVID,cid:123456,duration:options.duration||300,title:'测试视频'}}];if(func.name==='activateAiSubtitles')return [{result:{tracks:options.recoverSubtitles?[{lan:'ai-zh',subtitle_url:'https://test.hdslb.com/sub.json'}]:[],attempted:true}}];return [{result:options.noSubtitles?[]:[{lan:'zh-CN',subtitle_url:'https://test.hdslb.com/sub.json'}]}];}},
   };
   chromeApi.storage.session={get:async key=>({[key]:structuredClone(sessionData[key])}),set:async values=>Object.assign(sessionData,structuredClone(values)),remove:async key=>{delete sessionData[key];},setAccessLevel:async()=>{}};
   const fetch=async(url,init={})=>{
@@ -248,4 +248,19 @@ test('JEV长视频始终检查全文；原有服务配置与省Token偏好不被
 test('旧算法缓存与会话不复用，新结果不混入v7边界',async()=>{
  const h=harness({data:{'analysisCache:v7':[{id:'old-result',result:{analysisStatus:'ads',segments:[{start:0,end:299}]}}]}});
  const result=await h.analyze();assert.equal(result.segments[0].start,30);assert.equal(h.data['analysisCache:v7'],undefined);assert.ok(h.data['analysisCache:v8']);
+});
+test('首次无字幕自动尝试AI字幕后继续识别，已有字幕不动开关',async()=>{
+ const h=harness({noSubtitles:true,recoverSubtitles:true});const result=await h.analyze();assert.equal(result.provider,'jev');assert.equal(result.analysisStatus,'ads');assert.equal(h.scripts.filter(x=>x==='activateAiSubtitles').length,1);assert.ok(aiRequests(h).length>0);
+ const direct=harness();await direct.analyze();assert.equal(direct.scripts.includes('activateAiSubtitles'),false);
+});
+test('恢复字幕失败不请求AI、不缓存、不再要求手动打开AI字幕',async()=>{
+ const h=harness({noSubtitles:true});await assert.rejects(h.analyze(),e=>/已尝试自动获取字幕/.test(e.message)&&!/请在播放器/.test(e.message));assert.equal(h.scripts.filter(x=>x==='activateAiSubtitles').length,1);assert.equal(aiRequests(h).length,0);assert.equal(h.data['analysisCache:v8'],undefined);
+});
+test('社区有标注或未配置Key时，即便没有字幕也不操作字幕开关',async()=>{
+ for(const h of [harness({noSubtitles:true,community:communityFound}),harness({noSubtitles:true,settings:{jevApiKey:''}})]){await h.analyze();assert.deepEqual(h.scripts,['readMetadata']);}
+});
+test('字幕尝试前发送进度时配置已变更，不再操作播放器',async()=>{
+ const h=harness({noSubtitles:true,recoverSubtitles:true});
+ h.chromeApi.tabs.sendMessage=async(id,msg)=>{if(msg.type==='progress'&&msg.text.includes('开启 AI 字幕'))h.configure({enabled:false});};
+ await assert.rejects(h.analyze(),/配置|切换/);assert.equal(h.scripts.includes('activateAiSubtitles'),false);assert.equal(aiRequests(h).length,0);
 });

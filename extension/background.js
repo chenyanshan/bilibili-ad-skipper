@@ -2,6 +2,7 @@ import {providerConfig} from './providers.js';
 import {analyzeJev} from './jev-analysis.js';
 import {DEFAULTS,normalizeBody,parseResult,mergeSegments,SYSTEM,planAnalysis,compactRows,touchesBoundary,budgetChunks,sponsorContext} from './core.js';
 import {createCommunityClient} from './community.js';
+import {readSubtitles,activateAiSubtitles} from './subtitles.js';
 
 const CACHE_KEY='analysisCache:v8',CACHE_TTL=7*86400000,REGISTRY_KEY='trustedTabs:v2';
 function videoKey(url){try{const u=new URL(url);return u.origin==='https://www.bilibili.com'&&/^\/video\/(BV[\w]+)/.test(u.pathname)?`${u.pathname.match(/\/video\/(BV[\w]+)/)[1]}:${Number(u.searchParams.get('p')||1)}`:null;}catch{return null;}}
@@ -16,14 +17,6 @@ async function readMetadata(expected){
   const j=await r.json();if(j.code!==0)throw Error('无法读取 B站视频信息');
   const part=j.data?.pages?.find(p=>p.page===page);if(!part)throw Error('未找到当前分 P');
   return {bvid,cid:part.cid,title:j.data.title+' '+part.part,duration:part.duration};
-}
-async function readSubtitles(expected,video){
-  const bvid=location.pathname.match(/\/video\/(BV[\w]+)/)?.[1];
-  const page=Number(new URL(location.href).searchParams.get('p')||1);
-  if(!bvid||`${bvid}:${page}`!==expected||bvid!==video.bvid)throw Error('视频已切换，请重试');
-  async function get(path){const r=await fetch('https://api.bilibili.com'+path,{credentials:'include',signal:AbortSignal.timeout(15000)});const j=await r.json();if(j.code!==0)throw Error('无法读取播放器字幕');return j.data;}
-  let p;try{p=await get(`/x/player/wbi/v2?bvid=${bvid}&cid=${video.cid}`);}catch{p=await get(`/x/player/v2?bvid=${bvid}&cid=${video.cid}`);}
-  return p.subtitle?.subtitles||[];
 }
 
 export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=globalThis.fetch,now=Date.now,communityClient}={}) {
@@ -108,8 +101,17 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
   });}
   async function runAi(job,s,provider,v){
     const token=await ensureJob(job);
-    const tracks=(await execute(token.tabId,readSubtitles,[job.key,v])).filter(t=>t.subtitle_url).sort((a,b)=>rank(a.lan)-rank(b.lan));
-    if(!tracks.length)throw Error('B站尚未提供字幕。请在播放器里开启一次 AI 字幕后重试；若仍没有，本视频暂无法识别。');
+    let tracks=(await execute(token.tabId,readSubtitles,[job.key,v])).filter(t=>t.subtitle_url);
+    if(!tracks.length){
+      const currentToken=await ensureJob(job);
+      await chromeApi.tabs.sendMessage(currentToken.tabId,{type:'progress',key:job.key,text:'暂未读到字幕，正在尝试开启 AI 字幕后恢复原状态…'}).catch(()=>{});
+      const activationToken=await ensureJob(job);
+      const recovered=await execute(activationToken.tabId,activateAiSubtitles,[job.key,v]);
+      await ensureJob(job);
+      tracks=Array.isArray(recovered.tracks)?recovered.tracks.filter(t=>t.subtitle_url):[];
+    }
+    if(!tracks.length)throw Error('已尝试自动获取字幕，但 B站暂未提供可读取的字幕，本次无法用 AI 识别。');
+    tracks.sort((a,b)=>rank(a.lan)-rank(b.lan));
     const track=tracks[0],subUrl=new URL(track.subtitle_url,'https://www.bilibili.com');
     if(subUrl.protocol!=='https:'||subUrl.username||subUrl.password||!(subUrl.hostname.endsWith('.hdslb.com')||subUrl.hostname==='subtitle.bilibili.com'))throw Error('不支持的字幕来源');
     await ensureJob(job);
