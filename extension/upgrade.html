@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>广告跳过 · 升级</title><link rel="stylesheet" href="options.css">
+<main>
+<h1>升级广告跳过</h1>
+<p>当前版本 <strong id="installedVersion"></strong> · <a href="options.html" target="_blank" rel="noopener">返回设置</a></p>
+<section id="updates" aria-label="版本升级">
+<p id="updateStatus" role="status" aria-live="polite">正在读取更新状态…</p>
+<p id="upgradeHelp">正在检查可用的升级方式…</p>
+<div class="actions"><button type="button" id="upgradeAction" class="primary-button" hidden>立即升级</button><button type="button" id="checkUpdate">检查更新</button><a id="releaseLink" href="https://github.com/chenyanshan/bilibili-ad-skipper/releases/latest" target="_blank" rel="noopener noreferrer">查看发布页</a></div>
+<details id="updateDetails" hidden><summary>新版更新说明</summary><pre id="updateNotes"></pre></details>
+<details id="downloadHelp"><summary>下载后如何更新</summary>
+<ol><li>下载发布页的 <strong>bilibili-ad-skipper.zip</strong>，解压。</li><li>点击下方“打开当前插件管理页”，在详情中的“来源 / 从以下位置加载”查看或打开原文件夹。若未显示，确认扩展管理页已开启开发者模式。</li><li>用新版文件覆盖原文件夹，回到管理页点击“重新加载”，然后刷新 B站视频页。不要卸载，已有设置会保留。</li></ol>
+<button type="button" id="openExtensionManager">打开当前插件管理页</button>
+<p class="hint" id="managerHelp">如果浏览器不允许直接打开，可把下面的地址粘贴到地址栏。</p><code id="managerAddress"></code>
+</details>
+<details id="installControls"><summary>可选：启用原地升级与恢复备份</summary>
+<p class="hint">当前为解压安装，Chrome 不向插件提供本机安装路径。首次需要在上方管理页找到原文件夹并授权一次；完成后，主按钮会变为“立即升级”，以后不必重新查找目录。浏览器可能再次要求写入许可。</p>
+<p id="updateDirectory" class="hint"></p>
+<div class="actions"><button type="button" id="bindUpdateDirectory">授权原地升级</button><button type="button" id="restoreUpdateBackup" hidden>恢复上次备份</button></div>
+<p class="hint">原地升级仍处于实验阶段，原生目录授权到整包覆盖尚未完成人工端到端验收。程序会备份、校验并在常规错误时尝试恢复；更新期间保持页面开启。遇到权限变化、浏览器中断或新增权限要求，可使用下载方式恢复。</p>
+</details>
+</section>
+<footer>升级不会要求重新填写 Key。完成后请刷新已打开的 B站视频页。</footer>
+</main><script type="module" src="update-ui.js"></script></html>

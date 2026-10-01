@@ -192,10 +192,12 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     }finally{delete segment.submissionInFlight;await persistToken(token);}
   }
   async function handle(msg,sender){
-    if(typeof sender.url==='string'&&sender.url===chromeApi.runtime.getURL?.('options.html')){
+    if(typeof sender.url==='string'&&['options.html','upgrade.html'].some(page=>sender.url===chromeApi.runtime.getURL?.(page))){
       if(msg.type==='updateStatus')return updates.status();
       if(msg.type==='checkUpdate')return updates.check(!!msg.force);
       if(msg.type==='updateChecks')return updates.setEnabled(msg.enabled);
+      if(msg.type==='openExtensionManager'){await chromeApi.tabs.create({url:'chrome://extensions/?id='+chromeApi.runtime.id});return {};}
+      if(sender.url!==chromeApi.runtime.getURL('options.html'))throw Error('升级页面不支持此操作');
       const s=await settings(),p=providerConfig(s);
       if(msg.type==='usage')return usage.summary(p);
       if(msg.type==='testConnection'){
@@ -251,7 +253,11 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
 
 if(globalThis.chrome?.runtime?.onMessage){
   chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
-  chrome.action.onClicked.addListener(()=>chrome.runtime.openOptionsPage());
+  chrome.action.onClicked.addListener(async()=>{
+    const state=await background.updates.status().catch(()=>null);
+    if(state?.enabled&&state.available)await chrome.tabs.create({url:chrome.runtime.getURL('upgrade.html')});
+    else await chrome.runtime.openOptionsPage();
+  });
   const background=createBackground();
   const scheduleUpdates=async()=>{
     if(!await chrome.alarms.get('check-extension-update'))await chrome.alarms.create('check-extension-update',{delayInMinutes:1,periodInMinutes:24*60});
@@ -261,12 +267,12 @@ if(globalThis.chrome?.runtime?.onMessage){
   chrome.runtime.onInstalled.addListener(()=>{
     void background.updates.check().catch(()=>{});
     void (async()=>{const key='extensionUpdate:lastInstall',record=(await chrome.storage.local.get(key))[key];
-      if(record?.to===chrome.runtime.getManifest().version&&!record.opened&&Date.now()-record.at<300000){await chrome.storage.local.set({[key]:{...record,opened:true}});await chrome.runtime.openOptionsPage();}
+      if(record?.to===chrome.runtime.getManifest().version&&!record.opened&&Date.now()-record.at<300000){await chrome.storage.local.set({[key]:{...record,opened:true}});await chrome.tabs.create({url:chrome.runtime.getURL('upgrade.html')});}
     })().catch(()=>{});
   });
   chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==='check-extension-update')void background.updates.check().catch(()=>{});});
   chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
-    if(sender.url!==chrome.runtime.getURL('options.html')&&(!sender.tab||!videoKey(sender.url)))return;
+    if(!['options.html','upgrade.html'].some(page=>sender.url===chrome.runtime.getURL(page))&&(!sender.tab||!videoKey(sender.url)))return;
     background.handle(msg,sender).then(result=>respond({ok:true,result}),async error=>{
       const s={...DEFAULTS,...(await chrome.storage.local.get('settings')).settings};
       let message=error.message||'操作失败';for(const key of [s.apiKey,s.jevApiKey])if(key)message=message.split(key).join('[已隐藏]');

@@ -32,7 +32,7 @@ function harness(options={}){
   const analyze=(extra={},tab=1)=>send({type:'analyze',key:KEY,...extra},tab);
   const configure=patch=>{data.settings={...data.settings,...patch};for(const f of changes)f({settings:{newValue:data.settings}},'local');};
   const navigate=(tab=1,url=URL+'?p=2')=>{tabUrls.set(tab,url);for(const f of updates)f(tab,{url});};
-  return {data,sessionData,requests,scripts,send,analyze,configure,navigate,chromeApi,restart};
+  return {data,sessionData,requests,scripts,send,analyze,configure,navigate,chromeApi,restart,handle:(msg,sender)=>background.handle(msg,sender)};
 }
 const communityFound=()=>reply([{videoID:BVID,segments:[{cid:123456,category:'sponsor',actionType:'skip',segment:[5,15],UUID:'community-segment',videoDuration:300}]}]);
 const aiRequests=h=>h.requests.filter(r=>r.url.includes('api.typesafe.ai')||r.url.includes('llm.example'));
@@ -266,4 +266,19 @@ test('视频页面不能读取统计或发起连接测试',async()=>{
 
 test('更新检查仅设置页可请求，不向视频页暴露更新操作',async()=>{
  const h=harness();await assert.rejects(h.send({type:'checkUpdate',force:true}),/未知请求/);assert.equal(h.requests.length,0);
+});
+
+
+test('升级页可读更新状态，但不能读取JEV用量或测试Key',async()=>{
+ const h=harness(),sender={url:h.chromeApi.runtime.getURL('upgrade.html')};
+ const result=await h.handle({type:'updateStatus'},sender);assert.equal(result.currentVersion,'0.3.0');assert.ok(!JSON.stringify(result).includes('fixture-credential'));
+ for(const type of ['usage','testConnection'])await assert.rejects(h.handle({type},sender),/升级页面不支持/);
+ assert.equal(h.requests.length,0);
+});
+test('插件管理入口固定当前扩展ID，拒绝视频页和伪造升级页',async()=>{
+ const h=harness(),opened=[];h.chromeApi.runtime.id='test-extension';h.chromeApi.tabs.create=async value=>opened.push(value);
+ await h.handle({type:'openExtensionManager',url:'https://evil.example/'},{url:h.chromeApi.runtime.getURL('upgrade.html')});
+ assert.deepEqual(opened,[{url:'chrome://extensions/?id=test-extension'}]);
+ await assert.rejects(h.send({type:'openExtensionManager'}),/未知请求/);
+ await assert.rejects(h.handle({type:'openExtensionManager'},{url:'https://evil.example/upgrade.html'}),/不支持的页面/);assert.equal(opened.length,1);
 });

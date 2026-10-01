@@ -1,0 +1,15 @@
+{
+  "method": "Isolated Chrome with simulated future 0.8.0 metadata; existing authorisation simulated by an OPFS handle; no installation or native folder grant performed",
+  "settingsCardHasNoDirectoryControls": true,
+  "settingsLinkOpensUpgradePage": true,
+  "unboundPrimaryOpensRelease": true,
+  "boundPrimaryIsOneClick": true,
+  "advancedControlsCollapsed": true,
+  "managerTabTargetsThisExtension": true,
+  "chromeManagerShowsActualDirectory": true,
+  "viewports": [
+    1180,
+    760,
+    390
+  ]
+}

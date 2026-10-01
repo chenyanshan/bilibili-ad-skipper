@@ -8,3 +8,5 @@ a{color:#1d4ed8;overflow-wrap:anywhere}button:disabled,input:disabled{opacity:.6
 #updates{margin:24px 0;padding:18px;border:1px solid #d4dce6;border-radius:10px}#updates details{margin-top:12px}#updates summary{cursor:pointer}#updateNotes{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-height:280px;overflow:auto}#updates .actions{align-items:center}#updates[hidden],#updates [hidden]{display:none!important}
 
 #updateStatus{overflow-wrap:anywhere}#updateStatus.error{color:#a51d26}
+
+.primary-link,.primary-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 12px;border-radius:7px;border:1px solid #1d4ed8;background:#1d4ed8;color:white;text-decoration:none;font:inherit}#managerAddress{display:block;overflow-wrap:anywhere;font-size:12px}#downloadHelp li{margin:10px 0}#upgradeHelp{line-height:1.7}
