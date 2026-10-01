@@ -1,0 +1,24 @@
+{
+  "opfsInstalled": true,
+  "opfsRestored": true,
+  "backupPersisted": true,
+  "handlePersisted": true,
+  "actualExtensionDirectoryReadback": true,
+  "currentVersion": "0.7.0",
+  "actualPickerTest": "cancelled; native chooser selection not automated",
+  "reload": {
+    "version": "0.7.1",
+    "sentinel": {
+      "settings": "preserved",
+      "usage": 123
+    },
+    "handlePersisted": true,
+    "backupPersisted": true
+  },
+  "ui": {
+    "fixturePackage": "0.8.0 simulated future release, not published",
+    "prepared": true,
+    "wrongDirectoryRejected": true,
+    "pickerCancelled": true
+  }
+}

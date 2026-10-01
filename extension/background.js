@@ -1,3 +1,4 @@
+import {createUpdateChecker} from './updates.js';
 import {createUsageTracker} from './usage.js';
 import {providerConfig,connectionProbe,validateProbe} from './providers.js';
 import {analyzeJev} from './jev-analysis.js';
@@ -28,6 +29,10 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
   const tabs=new Map(),jobs=new Map();let revision=0,cacheQueue=Promise.resolve(),registryQueue=Promise.resolve();
   const settings=async()=>normalizeSettings((await storage.get('settings')).settings);
   const usage=createUsageTracker({storage,now});
+  const updates=createUpdateChecker({storage,fetch:fetchApi,now,currentVersion:chromeApi.runtime.getManifest().version,onChange:async result=>{
+    await chromeApi.action?.setBadgeText({text:result.enabled&&result.available?'↑':''});
+    if(result.enabled&&result.available)await chromeApi.action?.setBadgeBackgroundColor({color:'#2563eb'});
+  }});
   const serializeCache=task=>{const next=cacheQueue.then(task,task);cacheQueue=next.catch(()=>{});return next;};
   const serializeRegistry=task=>{const next=registryQueue.then(task,task);registryQueue=next.catch(()=>{});return next;};
   const settingsHash=s=>fingerprint(JSON.stringify(Object.keys(DEFAULTS).sort().map(key=>[key,s[key]])));
@@ -188,6 +193,9 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
   }
   async function handle(msg,sender){
     if(typeof sender.url==='string'&&sender.url===chromeApi.runtime.getURL?.('options.html')){
+      if(msg.type==='updateStatus')return updates.status();
+      if(msg.type==='checkUpdate')return updates.check(!!msg.force);
+      if(msg.type==='updateChecks')return updates.setEnabled(msg.enabled);
       const s=await settings(),p=providerConfig(s);
       if(msg.type==='usage')return usage.summary(p);
       if(msg.type==='testConnection'){
@@ -238,13 +246,25 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     void forgetSnapshot(tabId,key).catch(()=>{});
   });
   chromeApi.tabs.onRemoved?.addListener(tabId=>{tabs.delete(tabId);void forgetSnapshot(tabId).catch(()=>{});});
-  return {handle};
+  return {handle,updates};
 }
 
 if(globalThis.chrome?.runtime?.onMessage){
   chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
   chrome.action.onClicked.addListener(()=>chrome.runtime.openOptionsPage());
   const background=createBackground();
+  const scheduleUpdates=async()=>{
+    if(!await chrome.alarms.get('check-extension-update'))await chrome.alarms.create('check-extension-update',{delayInMinutes:1,periodInMinutes:24*60});
+  };
+  void scheduleUpdates().catch(()=>{});
+  chrome.runtime.onStartup.addListener(()=>{void background.updates.check().catch(()=>{});});
+  chrome.runtime.onInstalled.addListener(()=>{
+    void background.updates.check().catch(()=>{});
+    void (async()=>{const key='extensionUpdate:lastInstall',record=(await chrome.storage.local.get(key))[key];
+      if(record?.to===chrome.runtime.getManifest().version&&!record.opened&&Date.now()-record.at<300000){await chrome.storage.local.set({[key]:{...record,opened:true}});await chrome.runtime.openOptionsPage();}
+    })().catch(()=>{});
+  });
+  chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==='check-extension-update')void background.updates.check().catch(()=>{});});
   chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
     if(sender.url!==chrome.runtime.getURL('options.html')&&(!sender.tab||!videoKey(sender.url)))return;
     background.handle(msg,sender).then(result=>respond({ok:true,result}),async error=>{

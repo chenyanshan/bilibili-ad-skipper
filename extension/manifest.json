@@ -1,19 +1,22 @@
 {
   "manifest_version": 3,
   "name": "B站广告跳过",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "优先跳过 B 站社区标注的付费广告，没有标注时可用 JEV 识别。",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "https://www.bilibili.com/*",
     "https://*.hdslb.com/*",
     "https://subtitle.bilibili.com/*",
     "https://api.typesafe.ai/*",
-    "https://www.bsbsb.top/*"
+    "https://www.bsbsb.top/*",
+    "https://api.github.com/*",
+    "https://release-assets.githubusercontent.com/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
