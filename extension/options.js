@@ -41,8 +41,8 @@ async function refreshUsage(){
     const r=await chrome.runtime.sendMessage({type:'usage'});if(!r.ok)throw Error(r.error);
     const u=r.result;
     $('usageTable').hidden=!saved.jevApiKey;
-    $('usage').textContent=!saved.jevApiKey?'保存 JEV Key 后开始记录本机用量。':u.recent.requests?`已记录 ${u.days} 个使用日；${u.recent.unknown} 次请求缺少完整用量，${u.recent.unpriced} 次未计入费用估算。`:'尚无请求记录；识别视频或测试连接后会显示用量。';
-    for(const period of ['today','recent']){
+    $('usage').textContent=!saved.jevApiKey?'保存 JEV Key 后开始记录本机用量。':u.month.requests?`近 30 天：${u.month.unknown} 次请求缺少完整用量，${u.month.unpriced} 次未计入费用估算。`:'尚无请求记录；识别视频或测试连接后会显示用量。';
+    for(const period of ['day','week','month']){
       const data=u[period];
       for(const metric of ['Requests','Input','Output'])$(period+metric).textContent=data[metric.toLowerCase()].toLocaleString();
       $(period+'Cost').textContent=data.unpriced===data.requests&&data.requests>0?'暂无估价':`${data.unpriced?'已知部分 ':''}$${data.cost.toFixed(6)}`;
