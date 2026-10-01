@@ -12,7 +12,10 @@ const key=process.env.JEV_API_KEY;if(!key)throw Error('JEV_API_KEY is required (
 const corpus=JSON.parse(fs.readFileSync(`research/private-comparison-corpus-${date}.json`));
 const mode=process.env.JEV_STUDY_MODE||'full';
 if(!['full','baseline'].includes(mode))throw Error('Invalid study mode');
-const output=`research/private-comparison-jev-${mode}-${date}.json`;
+const runLabel=process.env.JEV_STUDY_RUN||'';
+if(runLabel&&!/^[a-z0-9-]+$/.test(runLabel))throw Error('Invalid run label');
+const output=`research/private-comparison-jev-${mode}-${date}${runLabel?'-'+runLabel:''}.json`;
+// A new run label isolates fresh measurements from completed historical runs.
 const selected=process.env.JEV_STUDY_IDS?.split(',');
 const results=fs.existsSync(output)?JSON.parse(fs.readFileSync(output)):[];
 for(const video of corpus){
@@ -44,6 +47,6 @@ for(const video of corpus){
  const merged=mergeSegments(found);result.segments=merged.filter(s=>s.end-s.start<=240&&s.end-s.start<video.duration*.95);incomplete+=merged.length-result.segments.length;result.incomplete=incomplete;result.status='complete';result.eligibleToSkip=result.segments.filter(s=>!s.truncated&&s.confidence>=result.threshold&&s.end-s.start>=result.minDuration);
  }
  }catch(error){result.status='error';result.error=String(error.message).split(key).join('[redacted]');result.partialSegments=found}
- result.finishedAt=new Date().toISOString();results.push(result);fs.writeFileSync(output,JSON.stringify(results,null,2));console.log(JSON.stringify({bvid:result.bvid,status:result.status,calls:result.calls.length,segments:result.segments,error:result.error}));
+ result.finishedAt=new Date().toISOString();results.push(result);fs.writeFileSync(output,JSON.stringify(results,null,2),{mode:0o600});console.log(JSON.stringify({bvid:result.bvid,status:result.status,calls:result.calls.length,segments:result.segments,error:result.error}));
  if(result.error==='HTTP 401'||result.error==='HTTP 403'||result.error==='HTTP 429')break;
 }

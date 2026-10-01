@@ -91,3 +91,38 @@ export function connectionProbe(s) {
 export function validateProbe(id,reply) {
   const a=reply?.answers?.ok;if(a?.type!=='noul'||!probability(a.noul))throw Error('响应不是兼容的 JEV answers 格式');
 }
+
+// Review only the prefix of an already confirmed ad. The end stays frozen.
+export function jevStartReviewRequest({model,title,context,brands,rows,segment,anchorRows}) {
+  const body=jevRequest({model,title,context,brands,rows,phase:'boundaries'});
+  delete body.questions.end;
+  body.state.confirmed_ad={start:segment.start,end:segment.end,start_subtitle_id:rows.find(r=>r.from===segment.start)?.id,opening:anchorRows.map(r=>[r.id,r.content])};
+  body.questions.start.criteria.none='No trustworthy start of the confirmed promotion can be selected.';
+  body.questions.start.criteria.outside='The SAME confirmed promotion starts BEFORE this eligible window.';
+  body.questions.start.instructions=`${POLICY} Review the START of the SAME confirmed ad described in confirmed_ad, not the first unrelated ad in this window. Select the earliest subtitle in its immediately connected commercial setup: problem framing, story-to-product transition, or product introduction can precede the brand name. Do not absorb ordinary story, criticism, or independent advice just because it concerns the same topic. Do not cross a return to normal content or another promotion. Keep the original start if earlier content is not clearly part of this pitch. Select outside if its start precedes this window; never guess a clipped start. The confirmed end is fixed.`;
+  return body;
+}
+export function jevStartReviewResult(reply,rows,segment) {
+  const a=reply?.answers,x=a?.start;
+  if(x?.type!=='choice'||!probability(x.confidence)||!probability(x.probabilities?.[x.choice]))return {status:'unconfirmed'};
+  if(x.choice==='outside')return {status:'outside'};
+  const row=rows.find(r=>`s_${r.id}`===x.choice);
+  if(!row||row.from>segment.start||Math.min(x.confidence,x.probabilities[x.choice])<.9)return {status:'unconfirmed'};
+  const changed=row.from<segment.start;
+  return {status:'confirmed',segment:{...segment,start:row.from,startReviewed:true,
+    startReviewConfidence:Math.min(x.confidence,x.probabilities[x.choice]),
+    ...(changed?{originalStart:segment.start,autoSubmitEligible:false}:{}),
+    boundaryConfidence:Math.min(segment.boundaryConfidence,x.confidence,x.probabilities[x.choice])}};
+}
+
+// JEV questions are independent: continuity is a separate request AFTER selecting
+// the candidate start, never conditional on another answer in the same call.
+export function jevStartContinuityRequest({model,title,rows,segment,proposed,anchorRows}) {
+  return {model,state:{title,original_start:segment.start,proposed_start:proposed.start,
+    eligible_subtitles:rows.filter(r=>r.from>=proposed.start&&r.from<segment.start).map(r=>[r.id,r.content]),
+    confirmed_ad_opening:anchorRows.map(r=>[r.id,r.content])},questions:{continuous:{type:'noul',instructions:
+      `${POLICY} Verify this specific proposed earlier start. Is ALL of eligible_subtitles directly part of the SAME continuous paid promotional pitch as confirmed_ad_opening, with no intervening ordinary content or separate promotion? Ordinary setup on a similar topic is insufficient; require a clear commercial transition leading directly into this ad. Do not simply confirm that an ad exists somewhere in this range.`}}};
+}
+export function jevStartContinuityConfirmed(reply) {
+  const c=reply?.answers?.continuous;return c?.type==='noul'&&probability(c.noul)&&c.noul>=.9;
+}

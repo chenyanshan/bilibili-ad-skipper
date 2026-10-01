@@ -1,0 +1,12 @@
+{
+  "method": "Production content scripts in foreground Chrome, localhost synthetic media and stubbed extension messages; no Bilibili/JEV/community network",
+  "checkedAt": "2026-10-01T02:22:45.143Z",
+  "result": {
+    "immediate": true,
+    "undoShown": true,
+    "restored": true,
+    "retained": true,
+    "disabled": true,
+    "noSubmissions": true
+  }
+}

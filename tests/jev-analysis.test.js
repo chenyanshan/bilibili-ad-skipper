@@ -7,6 +7,7 @@ function service(ads,{boundaryConfidence=.95,longProbability=.98}={}){
   calls.push(body);const ids=body.state.eligible_subtitles.map(r=>r[0]);
   const ad=ads.find(([a,b])=>b>=ids[0]&&a<=ids.at(-1));
   if(body.questions.has_ad){const continuous=body.questions.has_ad.instructions.includes('proposed long ad interval');return {answers:{has_ad:{type:'noul',noul:continuous?longProbability:ad?.length?.98:.1}}};}
+  if(body.state.confirmed_ad){const start=body.state.confirmed_ad.start/2;const choice=`s_${ids.find(id=>id===start)??ids.at(-1)}`;return {answers:{start:{type:'choice',choice,confidence:.95,probabilities:{[choice]:.95}},continuous:{type:'noul',noul:.99}}};}
   const choices=ad?[ad[0]<ids[0]?'outside':`s_${ad[0]}`,ad[1]>ids.at(-1)?'outside':`s_${ad[1]}`]:['none','none'];
   return {answers:Object.fromEntries(['start','end'].map((name,i)=>[name,{type:'choice',choice:choices[i],confidence:boundaryConfidence,probabilities:{[choices[i]]:boundaryConfidence}}]))};
  };return {ask,calls};
@@ -31,7 +32,7 @@ test('跨分块广告扩窗后使用完整边界，重叠结果去重',async()=>
 });
 test('低边界置信度触发局部复核，复核不会增加自动投稿资格',async()=>{
  const api=service([[40,55]],{boundaryConfidence:.3}),result=await run(make(120),api);
- assert.equal(api.calls.filter(b=>b.questions.start).length,2);
+ assert.equal(api.calls.filter(b=>b.questions.start&&!b.state.confirmed_ad).length,2);
  assert.equal(result.segments[0].boundaryReviewed,true);assert.equal(result.segments[0].autoSubmitEligible,false);
 });
 test('超过240秒的广告经连续推广复核后保留，失败则标记未完成',async()=>{
@@ -68,4 +69,43 @@ test('临界presence只触发小窗口复核，不以低于用户阈值的分数
   return api.ask(b);
  };
  const result=await run(make(120),{ask});assert.equal(result.segments.length,1);assert.ok(result.segments[0].confidence>=.65);
+});
+
+function prefixAnswer(choice,confidence=.95,continuous=.99){return {answers:{start:{type:'choice',choice,confidence,probabilities:{[choice]:confidence}},continuous:{type:'noul',noul:continuous}}};}
+test('confident late start gets anchored prefix review; only start changes, no auto submission',async()=>{
+ const api=service([[40,60]]),calls=[];
+ const result=await run(make(120),{ask:async b=>{calls.push(b);return b.state.confirmed_ad?prefixAnswer('s_35'):b.questions.continuous?{answers:{continuous:{type:'noul',noul:.99}}}:api.ask(b);}});
+ assert.equal(result.segments[0].start,70);assert.equal(result.segments[0].originalStart,80);assert.equal(result.segments[0].end,122);assert.equal(result.segments[0].autoSubmitEligible,false);
+ const review=calls.find(b=>b.state.confirmed_ad);assert.ok(review.state.confirmed_ad.opening.length);assert.ok(review.state.eligible_subtitles.every(([id])=>id<=40));assert.equal(review.questions.end,undefined);assert.equal(result.stats.startReviews,1);
+});
+test('unconfirmed, unrelated, low-confidence or later prefix never expands confirmed ad',async()=>{
+ for(const reply of [prefixAnswer('none'),prefixAnswer('s_41'),prefixAnswer('s_35',.8),prefixAnswer('s_35',.99,.3),{answers:{}}]){
+ const api=service([[40,60]]),r=await run(make(120),{ask:b=>b.state.confirmed_ad||b.questions.continuous?reply:api.ask(b)});
+ assert.equal(r.segments[0].start,80);assert.equal(r.segments[0].end,122);assert.equal(r.segments[0].autoSubmitEligible,false);assert.equal(r.segments[0].startReviewed,false);
+ }
+});
+test('outside prefix expands once within 60s; repeated outside keeps original, no clipping',async()=>{
+ for(const finish of [true,false]){let count=0;const api=service([[40,60]]);
+ const r=await run(make(120),{ask:b=>b.state.confirmed_ad?(++count===2&&finish?prefixAnswer('s_15'):prefixAnswer('outside')):b.questions.continuous?{answers:{continuous:{type:'noul',noul:.99}}}:api.ask(b)});
+ assert.equal(count,2);assert.equal(r.segments[0].start,finish?30:80);assert.equal(r.segments[0].end,122);assert.equal(r.segments[0].autoSubmitEligible,false);
+ }
+});
+test('budget exhaustion at optional prefix review preserves confirmed ad and stays within limit',async()=>{
+ const r=await run(make(120),service([[40,60]]),{maxRequests:3});assert.equal(r.stats.actualRequests,3);assert.equal(r.segments[0].start,80);assert.equal(r.budgetExhausted,true);assert.equal(r.segments[0].autoSubmitEligible,false);assert.equal(r.analysisStatus,'incomplete');
+});
+test('prefix review does not cross a previous independent confirmed ad',async()=>{
+ const api=service([[25,35],[40,60]]),reviews=[];
+ const r=await run(make(120),{ask:b=>{if(b.questions.continuous)return {answers:{continuous:{type:'noul',noul:.99}}};if(b.state.confirmed_ad){reviews.push(b);return prefixAnswer(`s_${b.state.eligible_subtitles[0][0]}`);}return api.ask(b);}});
+ assert.equal(r.segments.length,2);assert.ok(r.segments[1].start>=r.segments[0].end);assert.ok(reviews[1].state.eligible_subtitles.every(([id])=>id>=36));
+});
+test('earlier start needs a separate continuity request anchored to explicit candidate',async()=>{
+ const api=service([[40,60]]),calls=[];
+ const r=await run(make(120),{ask:b=>{calls.push(b);if(b.state.confirmed_ad)return prefixAnswer('s_35');if(b.questions.continuous)return {answers:{continuous:{type:'noul',noul:.99}}};return api.ask(b);}});
+ const pick=calls.findIndex(b=>b.state.confirmed_ad),confirm=calls.findIndex(b=>b.questions.continuous);
+ assert.ok(confirm>pick);assert.deepEqual(Object.keys(calls[pick].questions),['start']);assert.equal(calls[confirm].state.proposed_start,70);assert.equal(calls[confirm].state.original_start,80);assert.ok(calls[confirm].state.eligible_subtitles.every(([id])=>id>=35&&id<40));assert.equal(r.segments[0].start,70);
+});
+test('budget ending between prefix selection and confirmation never accepts unverified expansion',async()=>{
+ const api=service([[40,60]]);
+ const r=await run(make(120),{ask:b=>b.state.confirmed_ad?prefixAnswer('s_35'):api.ask(b)},{maxRequests:4});
+ assert.equal(r.stats.actualRequests,4);assert.equal(r.segments[0].start,80);assert.equal(r.segments[0].autoSubmitEligible,false);assert.equal(r.budgetExhausted,true);
 });
