@@ -1,0 +1,200 @@
+{
+  "method": "Muted local synthetic MP4 in foreground Chrome, existing timeupdate trigger versus proposed per-frame check; no model or Bilibili network involved",
+  "trials": [
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.33,
+      "triggerAt": 0.370026,
+      "lag": 0.040026000000000006,
+      "wallMilliseconds": 370.7999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.47,
+      "triggerAt": 0.567861,
+      "lag": 0.09786099999999998,
+      "wallMilliseconds": 570
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.61,
+      "triggerAt": 0.639764,
+      "lag": 0.029764000000000013,
+      "wallMilliseconds": 641.5
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.73,
+      "triggerAt": 0.840135,
+      "lag": 0.11013499999999998,
+      "wallMilliseconds": 842.5
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.89,
+      "triggerAt": 1.03864,
+      "lag": 0.14864,
+      "wallMilliseconds": 1040.7000000476837
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 1.01,
+      "triggerAt": 1.012135,
+      "lag": 0.002134999999999998,
+      "wallMilliseconds": 1013.7000000476837
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.33,
+      "triggerAt": 0.75687,
+      "lag": 0.42687,
+      "wallMilliseconds": 380.40000009536743
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.47,
+      "triggerAt": 0.769442,
+      "lag": 0.299442,
+      "wallMilliseconds": 386.2999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.61,
+      "triggerAt": 1.364206,
+      "lag": 0.754206,
+      "wallMilliseconds": 683.2999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.73,
+      "triggerAt": 1.352576,
+      "lag": 0.622576,
+      "wallMilliseconds": 678.1000001430511
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.89,
+      "triggerAt": 1.354628,
+      "lag": 0.46462799999999993,
+      "wallMilliseconds": 679.2000000476837
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 1.01,
+      "triggerAt": 1.453666,
+      "lag": 0.4436659999999999,
+      "wallMilliseconds": 728.2999999523163
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 0.33,
+      "triggerAt": 0.332759,
+      "lag": 0.0027590000000000114,
+      "wallMilliseconds": 333.2999999523163
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 0.47,
+      "triggerAt": 0.48177,
+      "lag": 0.011770000000000003,
+      "wallMilliseconds": 483.5
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 0.61,
+      "triggerAt": 0.631243,
+      "lag": 0.021243000000000012,
+      "wallMilliseconds": 633
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 0.73,
+      "triggerAt": 0.748607,
+      "lag": 0.01860700000000004,
+      "wallMilliseconds": 750.1999998092651
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 0.89,
+      "triggerAt": 0.898539,
+      "lag": 0.008538999999999963,
+      "wallMilliseconds": 900.2000000476837
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 1,
+      "start": 1.01,
+      "triggerAt": 1.014608,
+      "lag": 0.0046079999999999455,
+      "wallMilliseconds": 1016.3999998569489
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 0.33,
+      "triggerAt": 0.396956,
+      "lag": 0.06695599999999996,
+      "wallMilliseconds": 200.09999990463257
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 0.47,
+      "triggerAt": 0.596262,
+      "lag": 0.12626199999999999,
+      "wallMilliseconds": 300
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 0.61,
+      "triggerAt": 0.728966,
+      "lag": 0.11896600000000002,
+      "wallMilliseconds": 366
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 0.73,
+      "triggerAt": 0.73316,
+      "lag": 0.0031600000000000517,
+      "wallMilliseconds": 367.2999999523163
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 0.89,
+      "triggerAt": 0.9966,
+      "lag": 0.10660000000000003,
+      "wallMilliseconds": 499.90000009536743
+    },
+    {
+      "mode": "animationFrame",
+      "rate": 2,
+      "start": 1.01,
+      "triggerAt": 1.129034,
+      "lag": 0.11903400000000008,
+      "wallMilliseconds": 566.1000001430511
+    }
+  ],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "visibility": "visible",
+  "measuredAt": "2026-10-01T01:59:05.038Z"
+}

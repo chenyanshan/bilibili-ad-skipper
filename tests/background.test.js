@@ -22,6 +22,7 @@ function harness(options={}){
     if(url.includes('www.bsbsb.top'))return options.community?options.community(request):reply([],404);
     if(url.includes('hdslb.com'))return reply({body:options.body||body});
     if(options.provider)return options.provider(request);
+    if(request.body.state.confirmed_ad)return reply({answers:{start:{type:'choice',choice:'s_10',confidence:.95,probabilities:{s_10:.95}},continuous:{type:'noul',noul:.99}}});
     if(request.body.questions.has_ad){gates++;return reply({answers:{has_ad:{type:'noul',noul:gates%2?0.99:0.1}}});}
     return reply({answers:Object.fromEntries(['start','end'].map((key,i)=>{const choice=i?'s_19':'s_10';return [key,{type:'choice',choice,confidence:.95,probabilities:{[choice]:.96}}];}))});
   };
@@ -48,26 +49,26 @@ test('无广告社区才识别AI；缓存稳定ID和JEV资格，不缓存Key或�
   const h=harness();const first=await h.analyze();assert.equal(first.analysisStatus,'ads');assert.equal(first.segments[0].autoSubmitEligible,true);
   assert.equal(first.community.status,'empty');assert.equal(first.segments[0].boundaryConfidence,.95);
   const calls=aiRequests(h).length;const second=await h.analyze();assert.equal(second.cached,true);assert.equal(second.segments[0].id,first.segments[0].id);assert.equal(aiRequests(h).length,calls);
-  const cache=JSON.stringify(h.data['analysisCache:v8']);assert.ok(!cache.includes('fixture-credential'));assert.ok(!cache.includes('普通讲解字幕'));assert.match(cache,/jev-latest/);
+  const cache=JSON.stringify(h.data['analysisCache:v9']);assert.ok(!cache.includes('fixture-credential'));assert.ok(!cache.includes('普通讲解字幕'));assert.match(cache,/jev-latest/);
 });
 test('完整无广告结果复用缓存',async()=>{
   const provider=async()=>reply({answers:{has_ad:{type:'noul',noul:.1}}});
   const h=harness({provider});assert.equal((await h.analyze()).analysisStatus,'no_ads');assert.equal((await h.analyze()).cached,true);assert.equal(aiRequests(h).length,1);
 });
 test('缺字幕、失败响应不会写入无广告缓存',async()=>{
-  const missing=harness({noSubtitles:true});await assert.rejects(missing.analyze(),/字幕/);assert.equal(missing.data['analysisCache:v8'],undefined);
-  const failed=harness({provider:async()=>reply({},500)});await assert.rejects(failed.analyze(),/HTTP 500/);assert.equal(failed.data['analysisCache:v8'],undefined);
+  const missing=harness({noSubtitles:true});await assert.rejects(missing.analyze(),/字幕/);assert.equal(missing.data['analysisCache:v9'],undefined);
+  const failed=harness({provider:async()=>reply({},500)});await assert.rejects(failed.analyze(),/HTTP 500/);assert.equal(failed.data['analysisCache:v9'],undefined);
 });
 test('两标签同视频同配置合并模型调用，结果各自具有可信registry',async()=>{
   const h=harness();const [a,b]=await Promise.all([h.analyze({},1),h.analyze({},2)]);
-  assert.equal(a.segments[0].id,b.segments[0].id);assert.equal(aiRequests(h).length,3);assert.equal(h.scripts.filter(s=>s==='readSubtitles').length,1);
+  assert.equal(a.segments[0].id,b.segments[0].id);assert.equal(aiRequests(h).length,4);assert.equal(h.scripts.filter(s=>s==='readSubtitles').length,1);
 });
 test('配置变化和导航期间的旧响应不缓存或应用',async()=>{
   for(const change of ['settings','navigation']){
     let release,entered;const started=new Promise(resolve=>entered=resolve);
     const h=harness({provider:async()=>{entered();return new Promise(resolve=>release=()=>resolve(reply({answers:{has_ad:{type:'noul',noul:.1}}})));}});
     const pending=h.analyze();await started;if(change==='settings')h.configure({jevModel:'new-model'});else h.navigate();release();
-    await assert.rejects(pending,/切换|配置/);assert.equal(h.data['analysisCache:v8'],undefined);
+    await assert.rejects(pending,/切换|配置/);assert.equal(h.data['analysisCache:v9'],undefined);
   }
 });
 test('auto仅使用后台原区间，社区强制复核后投稿；重复skipped不重复POST',async()=>{
@@ -101,8 +102,8 @@ test('社区复核等待中切换视频，POST前guard再次撤销授权',async(
   assert.equal((await pending).status,'blocked');assert.equal(posts(h).length,0);
 });
 test('旧版缓存移除，过期项清理，完成缓存最多100项',async()=>{
-  const h=harness({data:{'cache:v6:old':{result:{segments:[]}},'analysisCache:v8':Array.from({length:102},(_,i)=>({id:'old-'+i,time:999999,result:{analysisStatus:'no_ads',coverage:{complete:true},segments:[]}}))}});
-  await h.analyze();assert.equal(h.data['cache:v6:old'],undefined);assert.equal(h.data['analysisCache:v8'].length,100);
+  const h=harness({data:{'cache:v6:old':{result:{segments:[]}},'analysisCache:v9':Array.from({length:102},(_,i)=>({id:'old-'+i,time:999999,result:{analysisStatus:'no_ads',coverage:{complete:true},segments:[]}}))}});
+  await h.analyze();assert.equal(h.data['cache:v6:old'],undefined);assert.equal(h.data['analysisCache:v9'].length,100);
 });
 
 test('无Key且社区为空给可操作状态，不请求字幕；同BV/P追踪参数不撤销registry',async()=>{
@@ -130,7 +131,7 @@ test('JEV presence与none边界矛盾不写no_ads缓存',async()=>{
  const h=harness({provider:async request=>request.body.questions.has_ad?reply({answers:{has_ad:{type:'noul',noul:.99}}}):reply({answers:{
   start:{type:'choice',choice:'none',confidence:.99,probabilities:{none:.99}},end:{type:'choice',choice:'none',confidence:.99,probabilities:{none:.99}},
  }})});
- const result=await h.analyze();assert.equal(result.analysisStatus,'incomplete');assert.equal(result.segments.length,0);assert.equal(h.data['analysisCache:v8'],undefined);
+ const result=await h.analyze();assert.equal(result.analysisStatus,'incomplete');assert.equal(result.segments.length,0);assert.equal(h.data['analysisCache:v9'],undefined);
 });
 
 test('同视频force失败后原可信AI候选仍可明确手动投稿',async()=>{
@@ -147,7 +148,7 @@ test('社区显式关闭与网络不可用区分，缺Key说明如何启用',asy
 test('被范围校验拒绝的JEV候选不缓存为no_ads',async()=>{
  let gate=0;
  const jev=harness({provider:async r=>r.body.questions.has_ad?reply({answers:{has_ad:{type:'noul',noul:++gate===1?.99:.1}}}):reply({answers:{start:{type:'choice',choice:'s_0',confidence:.99,probabilities:{s_0:.99}},end:{type:'choice',choice:'s_98',confidence:.99,probabilities:{s_98:.99}}}})});
- assert.equal((await jev.analyze()).analysisStatus,'incomplete');assert.equal(jev.data['analysisCache:v8'],undefined);
+ assert.equal((await jev.analyze()).analysisStatus,'incomplete');assert.equal(jev.data['analysisCache:v9'],undefined);
 });
 
 test('本机自定义端口的权限模式与设置页一致，不含端口',async()=>{
@@ -159,7 +160,7 @@ test('MV3 worker重启从trusted session恢复原候选，不重调AI即可自�
  for(const type of ['skipped','submit']){
   const h=harness({community:r=>r.method==='POST'?reply([{UUID:'restart-receipt'}]):reply([],404)});
   const result=await h.analyze(),calls=aiRequests(h).length,scripts=h.scripts.length;
-  assert.ok(h.sessionData['trustedTabs:v2'].length===1);assert.ok(!JSON.stringify(h.sessionData).includes('fixture-credential'));
+  assert.ok(h.sessionData['trustedTabs:v3'].length===1);assert.ok(!JSON.stringify(h.sessionData).includes('fixture-credential'));
   h.restart();assert.equal((await h.send({type,key:KEY,segmentId:result.segments[0].id})).status,'submitted');
   assert.equal(aiRequests(h).length,calls);assert.equal(h.scripts.length,scripts);assert.equal(posts(h).length,1);
  }
@@ -187,9 +188,9 @@ test('worker重启保留自动尝试标志，不恢复in-flight死锁，失败�
  fail=false;assert.equal((await h.send({type:'submit',key:KEY,segmentId:id})).status,'submitted');assert.equal(posts(h).length,2);
 });
 test('可信session快照数量有界且配置事件清除旧记录',async()=>{
- const h=harness();await h.analyze();const template=h.sessionData['trustedTabs:v2'][0];
- h.sessionData['trustedTabs:v2']=Array.from({length:110},(_,i)=>({...template,tabId:i+10}));
- await h.analyze();assert.equal(h.sessionData['trustedTabs:v2'].length,100);
+ const h=harness();await h.analyze();const template=h.sessionData['trustedTabs:v3'][0];
+ h.sessionData['trustedTabs:v3']=Array.from({length:110},(_,i)=>({...template,tabId:i+10}));
+ await h.analyze();assert.equal(h.sessionData['trustedTabs:v3'].length,100);
  h.configure({jevModel:'changed-model'});h.restart();
  assert.equal((await h.send({type:'submit',key:KEY,segmentId:template.result.segments[0].id})).status,'blocked');
 });
@@ -230,14 +231,14 @@ test('JEV长视频始终检查全文；原有服务配置与省Token偏好不被
 });
 test('旧算法缓存与会话不复用，新结果不混入v7边界',async()=>{
  const h=harness({data:{'analysisCache:v7':[{id:'old-result',result:{analysisStatus:'ads',segments:[{start:0,end:299}]}}]}});
- const result=await h.analyze();assert.equal(result.segments[0].start,30);assert.equal(h.data['analysisCache:v7'],undefined);assert.ok(h.data['analysisCache:v8']);
+ const result=await h.analyze();assert.equal(result.segments[0].start,30);assert.equal(h.data['analysisCache:v7'],undefined);assert.ok(h.data['analysisCache:v9']);
 });
 test('首次无字幕自动尝试AI字幕后继续识别，已有字幕不动开关',async()=>{
  const h=harness({noSubtitles:true,recoverSubtitles:true});const result=await h.analyze();assert.equal(result.provider,'jev');assert.equal(result.analysisStatus,'ads');assert.equal(h.scripts.filter(x=>x==='activateAiSubtitles').length,1);assert.ok(aiRequests(h).length>0);
  const direct=harness();await direct.analyze();assert.equal(direct.scripts.includes('activateAiSubtitles'),false);
 });
 test('恢复字幕失败不请求AI、不缓存、不再要求手动打开AI字幕',async()=>{
- const h=harness({noSubtitles:true});await assert.rejects(h.analyze(),e=>/已尝试自动获取字幕/.test(e.message)&&!/请在播放器/.test(e.message));assert.equal(h.scripts.filter(x=>x==='activateAiSubtitles').length,1);assert.equal(aiRequests(h).length,0);assert.equal(h.data['analysisCache:v8'],undefined);
+ const h=harness({noSubtitles:true});await assert.rejects(h.analyze(),e=>/已尝试自动获取字幕/.test(e.message)&&!/请在播放器/.test(e.message));assert.equal(h.scripts.filter(x=>x==='activateAiSubtitles').length,1);assert.equal(aiRequests(h).length,0);assert.equal(h.data['analysisCache:v9'],undefined);
 });
 test('社区有标注或未配置Key时，即便没有字幕也不操作字幕开关',async()=>{
  for(const h of [harness({noSubtitles:true,community:communityFound}),harness({noSubtitles:true,settings:{jevApiKey:''}})]){await h.analyze();assert.deepEqual(h.scripts,['readMetadata']);}

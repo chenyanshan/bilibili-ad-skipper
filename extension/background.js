@@ -5,7 +5,7 @@ import {DEFAULTS,normalizeSettings,normalizeBody} from './core.js';
 import {createCommunityClient} from './community.js';
 import {readSubtitles,activateAiSubtitles} from './subtitles.js';
 
-const CACHE_KEY='analysisCache:v8',CACHE_TTL=7*86400000,REGISTRY_KEY='trustedTabs:v2';
+const CACHE_KEY='analysisCache:v9',CACHE_TTL=7*86400000,REGISTRY_KEY='trustedTabs:v3';
 function videoKey(url){try{const u=new URL(url);return u.origin==='https://www.bilibili.com'&&/^\/video\/(BV[\w]+)/.test(u.pathname)?`${u.pathname.match(/\/video\/(BV[\w]+)/)[1]}:${Number(u.searchParams.get('p')||1)}`:null;}catch{return null;}}
 function rank(lan){return ['zh-CN','zh-Hans','zh','ai-zh'].indexOf(lan)<0?10:['zh-CN','zh-Hans','zh','ai-zh'].indexOf(lan);}
 
@@ -87,7 +87,7 @@ export function createBackground({chromeApi=globalThis.chrome,fetch:fetchApi=glo
     if(!r.ok)throw Error(`请求失败 HTTP ${r.status}`);return r.json();
   }
   async function execute(tabId,func,args){const [r]=await chromeApi.scripting.executeScript({target:{tabId},world:'MAIN',func,args});if(!r?.result)throw Error('读取播放器失败，请刷新 B站页面');return r.result;}
-  function configIdentity(s,p){return JSON.stringify({version:8,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints});}
+  function configIdentity(s,p){return JSON.stringify({version:9,provider:p.id,url:p.url,model:p.model,threshold:p.threshold,brandHints:s.brandHints});}
   async function fingerprint(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function cacheGet(id){return serializeCache(async()=>{
     const all=await storage.get(null),entries=Array.isArray(all[CACHE_KEY])?all[CACHE_KEY]:[];

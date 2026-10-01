@@ -1,5 +1,5 @@
 import {budgetChunks,compactRows,mergeSegments,sponsorContext,touchesBoundary} from './core.js';
-import {detectWithJev,jevRequest,jevBoundaryResult,JevBoundaryError} from './providers.js';
+import {detectWithJev,jevRequest,jevBoundaryResult,JevBoundaryError,jevStartReviewRequest,jevStartReviewResult,jevStartContinuityRequest,jevStartContinuityConfirmed} from './providers.js';
 
 class BudgetExceeded extends Error {}
 // Leave room around each detection block for one larger boundary review.
@@ -64,6 +64,29 @@ export async function analyzeJev({rows,model,title,brands,threshold,duration,ask
     if(result.segment.start>=segment.end||result.segment.end<=segment.start){incomplete++;return [];}
     return [{...result.segment,autoSubmitEligible:false,boundaryReviewed:true}];
   }
+  async function reviewStart(segment,previousEnd=0) {
+    // Review all confirmed ads, including confident boundaries. Bound total work
+    // and keep the independently confirmed interval if prefix evidence is weak.
+    const anchorRows=rows.filter(r=>r.to>segment.start&&r.from<Math.min(segment.end,segment.start+25)).slice(0,12);
+    for(const padding of [30,60]){
+      const prefix=rows.filter(r=>r.from>=Math.max(previousEnd,segment.start-padding)&&r.from<=segment.start);
+      if(prefix.length<2||!fits(prefix))break;
+      if(stats.actualRequests>=maxRequests){budgetExhausted=true;incomplete++;break;}
+      stats.startReviews=(stats.startReviews||0)+1;
+      const reply=await request(jevStartReviewRequest({...input(prefix),segment,anchorRows}));
+      const result=jevStartReviewResult(reply,prefix,segment);
+      if(result.status==='confirmed'){
+        if(result.segment.start===segment.start)return result.segment;
+        if(stats.actualRequests>=maxRequests){budgetExhausted=true;incomplete++;break;}
+        const confirmation=await request(jevStartContinuityRequest({...input(prefix),segment,proposed:result.segment,anchorRows}));
+        if(jevStartContinuityConfirmed(confirmation))return result.segment;
+        break;
+      }
+      if(result.status!=='outside')break;
+    }
+    stats.unconfirmedStarts=(stats.unconfirmedStarts||0)+1;
+    return {...segment,startReviewed:false,autoSubmitEligible:false};
+  }
   async function locate(part,initialGate,retry=true) {
     try{
       const segments=await detectWithJev({...input(part),threshold,duration,ask:request,initialGate,repairInconsistent:true});
@@ -112,7 +135,9 @@ export async function analyzeJev({rows,model,title,brands,threshold,duration,ask
   for(const segment of merged){
     if(segment.end-segment.start>=duration*.95){incomplete++;continue;}
     try{
-      const verified=await verifyLong(segment);
+      const reviewed=await reviewStart(segment,segments.at(-1)?.end||0);
+      if(reviewed.end-reviewed.start>=duration*.95){incomplete++;continue;}
+      const verified=await verifyLong(reviewed);
       if(verified)segments.push(verified);
     }catch(error){
       if(!(error instanceof BudgetExceeded))throw error;

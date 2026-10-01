@@ -1,0 +1,200 @@
+{
+  "method": "Muted local synthetic MP4 in foreground Chrome, old timeupdate trigger versus production skip-scheduler.js; no model or Bilibili network involved",
+  "trials": [
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.33,
+      "triggerAt": 0.375733,
+      "lag": 0.04573299999999997,
+      "wallMilliseconds": 376.2999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.47,
+      "triggerAt": 0.647238,
+      "lag": 0.177238,
+      "wallMilliseconds": 647.4000000953674
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.61,
+      "triggerAt": 0.840137,
+      "lag": 0.23013700000000004,
+      "wallMilliseconds": 840.4000000953674
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.73,
+      "triggerAt": 1.041635,
+      "lag": 0.3116350000000001,
+      "wallMilliseconds": 1042
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 0.89,
+      "triggerAt": 1.128183,
+      "lag": 0.23818299999999992,
+      "wallMilliseconds": 1128.5
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 1,
+      "start": 1.01,
+      "triggerAt": 1.199226,
+      "lag": 0.1892259999999999,
+      "wallMilliseconds": 1199.5999999046326
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.33,
+      "triggerAt": 0.752118,
+      "lag": 0.42211799999999994,
+      "wallMilliseconds": 376.5
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.47,
+      "triggerAt": 0.625644,
+      "lag": 0.155644,
+      "wallMilliseconds": 313.09999990463257
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.61,
+      "triggerAt": 0.785416,
+      "lag": 0.17541600000000002,
+      "wallMilliseconds": 392.7999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.73,
+      "triggerAt": 0.78835,
+      "lag": 0.05835000000000001,
+      "wallMilliseconds": 394.60000014305115
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 0.89,
+      "triggerAt": 1.387864,
+      "lag": 0.497864,
+      "wallMilliseconds": 694.2999999523163
+    },
+    {
+      "mode": "timeupdate",
+      "rate": 2,
+      "start": 1.01,
+      "triggerAt": 1.46899,
+      "lag": 0.45899,
+      "wallMilliseconds": 734.7999999523163
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 0.33,
+      "triggerAt": 0.346116,
+      "lag": 0.016115999999999964,
+      "wallMilliseconds": 346.5
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 0.47,
+      "triggerAt": 0.483022,
+      "lag": 0.013022000000000034,
+      "wallMilliseconds": 483.2999999523163
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 0.61,
+      "triggerAt": 0.614122,
+      "lag": 0.004121999999999959,
+      "wallMilliseconds": 614.2999999523163
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 0.73,
+      "triggerAt": 0.747728,
+      "lag": 0.017727999999999966,
+      "wallMilliseconds": 748
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 0.89,
+      "triggerAt": 0.89908,
+      "lag": 0.009079999999999977,
+      "wallMilliseconds": 899.4000000953674
+    },
+    {
+      "mode": "scheduler",
+      "rate": 1,
+      "start": 1.01,
+      "triggerAt": 1.013578,
+      "lag": 0.003578000000000081,
+      "wallMilliseconds": 1013.6999998092651
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 0.33,
+      "triggerAt": 0.366258,
+      "lag": 0.03625799999999996,
+      "wallMilliseconds": 183.29999995231628
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 0.47,
+      "triggerAt": 0.473684,
+      "lag": 0.0036840000000000206,
+      "wallMilliseconds": 237
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 0.61,
+      "triggerAt": 0.61599,
+      "lag": 0.005990000000000051,
+      "wallMilliseconds": 308.40000009536743
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 0.73,
+      "triggerAt": 0.793848,
+      "lag": 0.06384800000000002,
+      "wallMilliseconds": 397.09999990463257
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 0.89,
+      "triggerAt": 0.899514,
+      "lag": 0.009514000000000022,
+      "wallMilliseconds": 449.89999985694885
+    },
+    {
+      "mode": "scheduler",
+      "rate": 2,
+      "start": 1.01,
+      "triggerAt": 1.027626,
+      "lag": 0.01762599999999992,
+      "wallMilliseconds": 514.0999999046326
+    }
+  ],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "visibility": "visible",
+  "measuredAt": "2026-10-01T02:21:21.082Z"
+}
