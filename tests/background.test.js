@@ -263,3 +263,7 @@ test('用量只记录真实 JEV 请求；命中社区及缓存不累加',async()
 test('视频页面不能读取统计或发起连接测试',async()=>{
  const h=harness();await assert.rejects(h.send({type:'usage'}),/未知/);await assert.rejects(h.send({type:'testConnection'}),/未知/);assert.equal(h.requests.length,0);
 });
+
+test('更新检查仅设置页可请求，不向视频页暴露更新操作',async()=>{
+ const h=harness();await assert.rejects(h.send({type:'checkUpdate',force:true}),/未知请求/);assert.equal(h.requests.length,0);
+});

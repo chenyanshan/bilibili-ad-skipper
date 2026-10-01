@@ -4,6 +4,21 @@
 <title>广告跳过 · 设置</title><link rel="stylesheet" href="options.css">
 <main>
 <h1>B站广告跳过</h1><p>社区广告优先；没有广告标注时，再由JEV 识别。</p>
+<section id="updates" aria-labelledby="updatesHeading">
+<h2 id="updatesHeading">插件更新</h2>
+<p>当前版本 <strong id="installedVersion"></strong> · <a id="releaseLink" href="https://github.com/chenyanshan/bilibili-ad-skipper/releases/latest" target="_blank" rel="noopener noreferrer">查看发布页</a></p>
+<label class="check"><input id="autoUpdateChecks" type="checkbox">每天自动检查新版本</label>
+<p class="hint">只查询 GitHub 发布信息，不发送 Key、字幕或观看记录。发现新版会在插件图标显示 ↑，不会自动安装。</p>
+<p id="updateStatus" role="status" aria-live="polite">正在读取更新状态…</p>
+<div class="actions"><button type="button" id="checkUpdate">检查更新</button><a id="downloadUpdate" hidden target="_blank" rel="noopener noreferrer">下载新版 ZIP</a><button type="button" id="prepareUpdate" hidden>准备原地升级</button></div>
+<details id="updateDetails" hidden><summary>新版更新说明</summary><pre id="updateNotes"></pre></details>
+<details id="installControls"><summary>原地升级设置</summary>
+<p class="hint">适用于“加载已解压的扩展”。首次选择 Chrome 当前加载、直接包含 manifest.json 的原安装文件夹，不能选择 ZIP 或另一份副本。每次由你点击升级，保留已有 Key 和设置。</p>
+<p id="updateDirectory" class="hint"></p>
+<div class="actions"><button type="button" id="bindUpdateDirectory">选择原安装文件夹</button><button type="button" id="applyUpdate" disabled>安装并重新加载</button><button type="button" id="restoreUpdateBackup" hidden>恢复上次备份</button></div>
+<p class="hint">更新时保持本页面开启；请勿同时手动改动目录。插件会校验安装包、备份被覆盖文件并读回检查，失败时尝试恢复。若浏览器崩溃或目录权限失效，可下载 ZIP 覆盖原目录后重新加载。新版需要新增权限时，请使用下载升级。完成后刷新已打开的 B站视频页。</p>
+</details>
+</section>
 <form id="form">
 <label class="check"><input type="checkbox" id="communityEnabled">使用社区广告标注（无需 API Key）</label>
 <p class="hint">仅采用“赞助/恰饭”（sponsor）广告。有社区广告就直接跳过，不调用 AI。来源：<a href="https://github.com/hanydd/BilibiliSponsorBlock" target="_blank" rel="noopener noreferrer">BilibiliSponsorBlock 社区</a>。</p>
@@ -38,4 +53,4 @@
 <button type="button" id="refreshUsage">刷新用量</button>
 </section>
 <footer>Key 仅存本机，不同步。标题、字幕及少量赞助上下文会发送给JEV 服务。JEV 分块发送完整字幕。不会发送 B 站 Cookie、账号信息或音视频。社区广告不需要字幕；AI 识别需要字幕；首次读取不到时，会尝试开启中文 AI 字幕后恢复原状态。社区查询使用视频标识，投稿的广告数据会公开。<br>版本 <span id="version"></span> · 发布包不包含 Key</footer>
-</main><script type="module" src="options.js"></script></html>
+</main><script type="module" src="options.js"></script><script type="module" src="update-ui.js"></script></html>
