@@ -77,7 +77,7 @@
   }
   async function check(){
     const next=locationKey();
-    if(next!==key){key=next;const token=++epoch;segments=[];ignored.clear();reported.clear();submissions.clear();busy=false;lastSkip=null;if(!host)mount();host.hidden=!key;list.replaceChildren();undo.hidden=true;button.disabled=false;
+    if(next!==key){document.dispatchEvent(new Event('bili-ad-skipper:cancel-subtitles'));key=next;const token=++epoch;segments=[];ignored.clear();reported.clear();submissions.clear();busy=false;lastSkip=null;if(!host)mount();host.hidden=!key;list.replaceChildren();undo.hidden=true;button.disabled=false;
       if(key){try{cfg=await send({type:'settings'});if(token!==epoch)return;status.textContent=cfg.enabled?(cfg.autoAnalyze?'准备查询广告':'自动查询已关闭，可点击重新识别'):'插件已停用，请到设置开启';if(cfg.autoAnalyze)analyze();}catch(e){if(token===epoch)status.textContent=e.message;}}
     }
     const v=document.querySelector('video');if(v!==video){video?.removeEventListener('timeupdate',tick);video=v;video?.addEventListener('timeupdate',tick);}
@@ -85,6 +85,7 @@
   chrome.runtime.onMessage.addListener(msg=>{
     if(msg.type==='progress'&&msg.key===key&&busy)status.textContent=msg.text;
     if(msg.type==='settingsChanged'&&key){
+      document.dispatchEvent(new Event('bili-ad-skipper:cancel-subtitles'));
       const token=++epoch;segments=[];busy=false;lastSkip=null;undo.hidden=true;button.disabled=false;render();
       send({type:'settings'}).then(s=>{if(token!==epoch)return;cfg=s;status.textContent=s.enabled?'设置已更新':'插件已停用';if(s.autoAnalyze)analyze();}).catch(e=>{if(token===epoch)status.textContent=e.message;});
     }
