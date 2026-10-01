@@ -5,17 +5,15 @@ export function createUsageTracker({storage,now=Date.now}) {
   const serial=task=>{const next=queue.then(task,task);queue=next.catch(()=>{});return next;};
   async function identity(provider){
     const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([provider.url,provider.key])));
-    return 'jevUsage:'+Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+    return 'jevUsage:v2:'+Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
   }
-  function retained(rows){return (Array.isArray(rows)?rows:[]).filter(r=>Number.isInteger(r.day)&&r.day<=Math.floor(now()/DAY)&&r.day>Math.floor(now()/DAY)-90);}
-  async function record(provider,day,reply){
+  function retained(rows){return (Array.isArray(rows)?rows:[]).filter(r=>Number.isFinite(r.time)&&r.time<=now()&&r.time>now()-30*DAY);}
+  async function record(provider,time,reply){
     const key=await identity(provider);
     return serial(async()=>{
       const usage=reply?.usage;
       const rows=retained((await storage.get(key))[key]);
-      let row=rows.find(r=>r.day===day);
-      if(!row){row={day,requests:0,input:0,output:0,unknown:0,cost:0,unpriced:0};rows.push(row);}
-      row.requests++;
+      const row={time,requests:1,input:0,output:0,unknown:0,cost:0,unpriced:0};rows.push(row);
       const valid=n=>Number.isSafeInteger(n)&&n>=0;
       if(valid(usage?.input_tokens))row.input+=usage.input_tokens;
       if(valid(usage?.output_tokens))row.output+=usage.output_tokens;
@@ -28,10 +26,10 @@ export function createUsageTracker({storage,now=Date.now}) {
   }
   return {
     async request(provider,ask){
-      const day=Math.floor(now()/DAY);let reply;
+      const time=now();let reply;
       try{reply=await ask();return reply;}finally{
         // Accounting failure must not invalidate an otherwise usable ad decision.
-        await record(provider,day,reply).catch(()=>{});
+        await record(provider,time,reply).catch(()=>{});
       }
     },
     async summary(provider){
@@ -39,7 +37,8 @@ export function createUsageTracker({storage,now=Date.now}) {
       return serial(async()=>{
         const rows=retained((await storage.get(key))[key]);
         const sum=list=>list.reduce((total,r)=>Object.fromEntries(Object.keys(total).map(k=>[k,total[k]+(r[k]||0)])),{requests:0,input:0,output:0,unknown:0,cost:0,unpriced:0});
-        return {recent:sum(rows),today:sum(rows.filter(r=>r.day===Math.floor(now()/DAY))),days:rows.length};
+        const end=now();
+        return {day:sum(rows.filter(r=>r.time>end-DAY)),week:sum(rows.filter(r=>r.time>end-7*DAY)),month:sum(rows)};
       });
     }
   };

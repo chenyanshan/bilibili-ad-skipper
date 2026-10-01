@@ -256,7 +256,7 @@ test('旧 LLM 选择升级后只请求 JEV，无 JEV Key 时只用社区',async(
 test('用量只记录真实 JEV 请求；命中社区及缓存不累加',async()=>{
  const h=harness();await h.analyze();const entries=()=>Object.entries(h.data).filter(([k])=>k.startsWith('jevUsage:'));
  assert.equal(entries().length,1);const first=JSON.stringify(entries());await h.analyze();assert.equal(JSON.stringify(entries()),first);
- assert.equal(entries()[0][1][0].requests,aiRequests(h).length);assert.ok(!first.includes('fixture-credential'));
+ assert.equal(entries()[0][1].reduce((sum,r)=>sum+r.requests,0),aiRequests(h).length);assert.ok(!first.includes('fixture-credential'));
  const community=harness({community:communityFound});await community.analyze();assert.equal(Object.keys(community.data).filter(k=>k.startsWith('jevUsage:')).length,0);
 });
 test('视频页面不能读取统计或发起连接测试',async()=>{
